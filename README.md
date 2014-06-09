@@ -12,8 +12,10 @@ Environmental configuration for Clojure projects inspired by
 format
 
 ```shell
-KEY=VALUE # and a comment
+KEY="VALUE" # and a comment
 ```
+**note** values *must* be quoted
+
 
 Typically a project's repo will include `.env` files corresponding to
 each non-prod environment, i.e. `.env.dev`, `.env.ci` and `.env.qa`.
@@ -30,9 +32,11 @@ config should be initialized by calling `init!`, e.g.
 
 (defconfig
   foo "BAZ"
-  bar "QUX)
+  bar "QUX")
 
 (init!)
+
+;; @foo contains the value of BAZ
 ```
 
 `defconfig` creates delays `foo` and `bar`. `init!` will raise an
