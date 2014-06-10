@@ -34,7 +34,7 @@ config should be initialized by calling `init!`, e.g.
   foo "BAZ"
   bar "QUX")
 
-(init!)
+(init!) ;; call init! once as the app starts
 
 ;; @foo contains the value of BAZ
 ```
