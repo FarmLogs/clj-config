@@ -5,6 +5,8 @@
   (:import [java.util Properties]
            [java.io File]))
 
+(def +env-files+ [".env" ".env.local"])
+
 (defn trim-quotes
   [string]
   (s/replace string #"\"(.*)\"" "$1"))
@@ -16,10 +18,28 @@
   "
   [f]
   (let [file (io/as-file f)]
-    (when (.exists file)
-      (reduce (fn [acc [k v]] (assoc acc k (-> v trim trim-quotes)))
-              {}
-              (doto (Properties.) (.load (io/input-stream file)))))))
+    (if (.exists file)
+      (do (println "Loading environment from:" f)
+          (reduce (fn [acc [k v]] (assoc acc k (-> v trim trim-quotes)))
+                  {}
+                  (doto (Properties.) (.load (io/input-stream file)))))
+      (printf "Failed to load environment from '%s'. File does not exist." f))))
+
+(defn make-path
+  [root basename]
+  (clojure.string/join File/separator (list root basename)))
+
+(defn get-env
+  "
+  Get a map of environment vars merged w/ config using the precedence:
+  shell > .env
+  "
+  [root]
+  (let [env-vars   (into {} (System/getenv))
+        filenames (if-let [env-file (System/getenv "ENV_FILE")]
+                    [env-file]
+                    (for [name +env-files+] (make-path root name)))]
+    (apply merge (conj (mapv f->p filenames) env-vars))))
 
 (defn get-env
   "
@@ -28,8 +48,8 @@
   "
   [root]
   (let [env-vars  (into {} (System/getenv))
-        dotenv    (clojure.string/join File/separator (list root ".env"))
-        dotenv-local (clojure.string/join File/separator (list root ".env.local"))]
+        dotenv    (env-filename root ".env")
+        dotenv-local (make-path root ".env.local")]
     (merge (f->p dotenv) (f->p dotenv-local) env-vars)))
 
 (defn get-var
