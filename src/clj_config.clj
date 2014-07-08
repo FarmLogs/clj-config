@@ -41,17 +41,6 @@
                     (for [name +env-files+] (make-path root name)))]
     (apply merge (conj (mapv f->p filenames) env-vars))))
 
-(defn get-env
-  "
-  Get a map of environment vars merged w/ config using the precedence:
-  shell > .env
-  "
-  [root]
-  (let [env-vars  (into {} (System/getenv))
-        dotenv    (env-filename root ".env")
-        dotenv-local (make-path root ".env.local")]
-    (merge (f->p dotenv) (f->p dotenv-local) env-vars)))
-
 (defn get-var
   "Get a config var, barf if it doesn't exist or provide a default value."
   ([m k]
