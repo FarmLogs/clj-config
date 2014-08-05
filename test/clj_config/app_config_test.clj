@@ -37,3 +37,20 @@
                (defappconfig ~'sentry-dsn :sentry-dsn)))
     (init-app-config! "ci")
     (is (= "ci/qa sentry dsn" @@(resolve 'sentry-dsn)))))
+
+(deftest no-env-config-file
+  (with-fake-env {}
+    (eval `(do (in-ns 'clj-config.app-config-test)
+               (defappconfig ~'sentry-dsn :sentry-dsn)))
+    (is (thrown? AssertionError (init-app-config! "ci")))))
+
+(deftest no-app-config-file
+  (with-fake-env {}
+    (eval `(do (in-ns 'clj-config.app-config-test)
+               (defappconfig ~'sentry-dsn :sentry-dsn)))
+    (is (thrown? AssertionError (init-app-config! "ci")))))
+
+(deftest no-app-config-file-without-defappconfig
+  (with-fake-env {}
+    (init-app-config! "ci") ;; should not throw
+    (is (= 1 1))))

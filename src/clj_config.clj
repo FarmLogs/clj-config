@@ -134,10 +134,10 @@
     (assert (set/subset? @required-app-config-vars (set (keys app-config)))
             (format "Not all required configuration vars are defined. Missing vars: %s"
                     (pr-str (set/difference @required-app-config-vars (set (keys app-config))))))
-     ;; app-env: lookup fn into config
-     (alter-var-root #'app-env    (constantly (partial get-var app-config)))
-     ;; app-config: map of config values
-     (alter-var-root #'app-config (constantly #(identity app-config)))))
+    ;; app-env: lookup fn into config
+    (alter-var-root #'app-env    (constantly (partial get-var app-config)))
+    ;; app-config: map of config values
+    (alter-var-root #'app-config (constantly #(identity app-config)))))
 
 (defn init!
   ([]
