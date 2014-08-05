@@ -1,0 +1,10 @@
+{:sentry-dsn {:dev nil
+              [:ci :qa] "ci/qa sentry dsn"
+              #{:prod} "prod sentry dsn"}
+
+ :web-server-threads {:dev 80
+                      :ci 40
+                      :qa 20
+                      :prod 10} ; oh noez!
+
+}
