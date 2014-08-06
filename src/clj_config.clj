@@ -39,10 +39,12 @@
 (defn get-var
   "Get a config var, barf if it doesn't exist or provide a default value."
   ([m k]
-     (or (get m k)
-         (throw (ex-info (str "config var " k " not set") {}))))
+   (when-not m (throw (ex-info "config not initialized" {})))
+   (or (get m k)
+       (throw (ex-info (str "config var " k " not set") {}))))
   ([m k not-found]
-     (get m k not-found)))
+   (when-not m (throw (ex-info "config not initialized" {})))
+   (get m k not-found)))
 
 (defn system-get-env
   ([] (System/getenv))
@@ -63,16 +65,14 @@
                         (for [name +env-files+] (make-path root name)))]
     (apply merge (conj (mapv f->p env-filenames) env-vars))))
 
-(defn env [k] (throw (ex-info "config vars not initialized" {:var k})))
-(defn config [] (throw (ex-info "config not initialized" {})))
-
+(def config nil)
 (def required-vars (atom #{}))
 
 (defn config-def
   [[name env-varname]]
   (assert (and (symbol? name) (string? env-varname)))
   `((swap! @(ns-resolve '~'clj-config '~'required-vars) conj ~env-varname)
-    (def ~name (delay (env ~env-varname)))))
+    (def ~name (delay (get-var config ~env-varname)))))
 
 (defmacro defconfig
   [& names]
@@ -105,16 +105,14 @@
         edn/read-string
         (transform-app-config (keyword app-env)))))
 
-(defn app-env [k] (throw (ex-info "app config vars not initialized" {:var k})))
-(defn app-config [] (throw (ex-info "app config not initialized" {})))
-
+(def app-config nil)
 (def required-app-config-vars (atom #{}))
 
 (defn app-config-def
   [[name env-varname]]
   (assert (and (symbol? name) (keyword? env-varname)))
   `((swap! @(ns-resolve '~'clj-config '~'required-app-config-vars) conj ~env-varname)
-    (def ~name (delay (app-env ~env-varname))))) ;; should be app-env
+    (def ~name (delay (get-var app-config ~env-varname)))))
 
 (defmacro defappconfig
   [& names]
@@ -135,10 +133,7 @@
     (assert (set/subset? @required-app-config-vars (set (keys app-config)))
             (format "Not all required configuration vars are defined. Missing vars: %s"
                     (pr-str (set/difference @required-app-config-vars (set (keys app-config))))))
-    ;; app-env: lookup fn into config
-    (alter-var-root #'app-env    (constantly (partial get-var app-config)))
-    ;; app-config: map of config values
-    (alter-var-root #'app-config (constantly #(identity app-config)))))
+    (alter-var-root #'app-config (constantly app-config))))
 
 (defn init!
   ([]
@@ -149,10 +144,7 @@
      (assert (set/subset? @required-vars (set (keys config)))
              (format "Not all required configuration vars are defined. Missing vars: %s"
                      (pr-str (set/difference @required-vars (set (keys config))))))
-     ;; env: lookup fn into config
-     (alter-var-root #'env    (constantly (partial get-var config)))
-     ;; config: map of config values
-     (alter-var-root #'config (constantly #(identity config)))
+     (alter-var-root #'config (constantly config))
 
      (init-app-config! (get-var config "APPLICATION_ENVIRONMENT" "dev")))))
 

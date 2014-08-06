@@ -39,3 +39,8 @@
 (deftest init-verifies-presence-of-required-values
   (swap! required-vars conj "IMPORTANT_BUT_MISSING_VALUE")
   (is (thrown? AssertionError (init! "test/fixtures"))))
+
+(deftest deref-throws-when-config-is-uninitialized
+  (eval `(defconfig ~'foo "OHAI"))
+  (is (thrown? clojure.lang.ExceptionInfo
+               (get-var config "OHAI" :ohai-value))))
