@@ -88,11 +88,12 @@
 
 (defn transform-app-config [input-app-config this-env]
   (reduce-kv (fn [acc k value-map]
-               (let [[_ value]
-                     (first (filter (fn [[env-key _]]
-                                      (contains? (->set env-key) this-env))
-                                    value-map))]
-                 (assoc acc k value)))
+               (if-not (map? value-map)
+                 (assoc acc k value-map)
+                 (let [[_ value]
+                       (first (filter (fn [[env-key _]] (contains? (->set env-key) this-env))
+                                      value-map))]
+                   (assoc acc k value))))
              {}
              input-app-config))
 

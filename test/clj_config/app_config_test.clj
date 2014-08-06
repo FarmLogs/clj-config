@@ -22,13 +22,13 @@
 
 (deftest reading-and-transforming-app-config
   (let [config-path "test/fixtures/app_config.edn"]
-    (is (= {:sentry-dsn nil :web-server-threads 80}
+    (is (= {:sentry-dsn nil :web-server-threads 80 :api-key "invariant"}
            (get-app-config config-path "dev")))
-    (is (= {:sentry-dsn "ci/qa sentry dsn" :web-server-threads 40}
+    (is (= {:sentry-dsn "ci/qa sentry dsn" :web-server-threads 40 :api-key "invariant"}
            (get-app-config config-path "ci")))
-    (is (= {:sentry-dsn "ci/qa sentry dsn" :web-server-threads 20}
+    (is (= {:sentry-dsn "ci/qa sentry dsn" :web-server-threads 20 :api-key "invariant"}
            (get-app-config config-path "qa")))
-    (is (= {:sentry-dsn "prod sentry dsn" :web-server-threads 10}
+    (is (= {:sentry-dsn "prod sentry dsn" :web-server-threads 10  :api-key "invariant"}
            (get-app-config config-path "prod")))))
 
 (deftest deref-app-config-values
