@@ -36,8 +36,8 @@
   [root basename]
   (clojure.string/join File/separator (list root basename)))
 
-(defn get-var
-  "Get a config var, barf if it doesn't exist or provide a default value."
+(defn get*
+  "Get k from m, barf if not found (unless provided a default value)."
   ([m k]
    (when-not m (throw (ex-info "config not initialized" {})))
    (or (get m k)
@@ -52,7 +52,7 @@
 
 ;;;;;;;;; Infra/local env stuff
 
-(defn get-env
+(defn read-env
   "
   Get a map of environment vars merged w/ config using the precedence:
   environment variables beat
@@ -66,18 +66,13 @@
     (apply merge (conj (mapv f->p env-filenames) env-vars))))
 
 (def config nil)
-(def required-vars (atom #{}))
+(def required-env (atom #{}))
 
-(defn config-def
+(defn env-config-def
   [[name env-varname]]
   (assert (and (symbol? name) (string? env-varname)))
-  `((swap! @(ns-resolve '~'clj-config '~'required-vars) conj ~env-varname)
-    (def ~name (delay (get-var config ~env-varname)))))
-
-(defmacro defconfig
-  [& names]
-  {:pre [(even? (count names))]}
-  `(do ~@(mapcat config-def (partition 2 names))))
+  `((swap! required-env conj ~env-varname)
+    (def ~name (delay (get* config ~env-varname)))))
 
 ;;;;;;;; app config
 
@@ -86,18 +81,18 @@
     (set value)
     #{value}))
 
-(defn transform-app-config [input-app-config this-env]
+(defn transform-app-config [app-config env]
   (reduce-kv (fn [acc k value-map]
                (if-not (map? value-map)
                  (assoc acc k value-map)
                  (let [[_ value]
-                       (first (filter (fn [[env-key _]] (contains? (->set env-key) this-env))
+                       (first (filter (fn [[env-key _]] (contains? (->set env-key) env))
                                       value-map))]
                    (assoc acc k value))))
              {}
-             input-app-config))
+             app-config))
 
-(defn get-app-config [app-config-filename app-env]
+(defn read-app-config [app-config-filename app-env]
   (when (and app-config-filename app-env)
     (info "Loading app-owned environment from:" app-config-filename)
     (-> app-config-filename
@@ -106,33 +101,27 @@
         (transform-app-config (keyword app-env)))))
 
 (def app-config nil)
-(def required-app-config-vars (atom #{}))
+(def required-app-config (atom #{}))
 
 (defn app-config-def
   [[name env-varname]]
   (assert (and (symbol? name) (keyword? env-varname)))
-  `((swap! @(ns-resolve '~'clj-config '~'required-app-config-vars) conj ~env-varname)
-    (def ~name (delay (get-var app-config ~env-varname)))))
-
-(defmacro defappconfig
-  [& names]
-  {:pre [(even? (count names))]}
-  `(do ~@(mapcat app-config-def (partition 2 names))))
+  `((swap! required-app-config conj ~env-varname)
+    (def ~name (delay (get* app-config ~env-varname)))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; problems:
-;; - duplication all over the place
-;; - env & config still have multiple meanings
+;; - still duplication
 ;;
 ;;;;;;;;;;;;;;;;;;;;
 
 (defn init-app-config! [application-environment]
-  (let [app-config (get-app-config (system-get-env "APP_OWNED_CONFIG_EDN_FILE")
+  (let [app-config (read-app-config (system-get-env "APP_OWNED_CONFIG_EDN_FILE")
                                    application-environment)]
-    (assert (set/subset? @required-app-config-vars (set (keys app-config)))
-            (format "Not all required configuration vars are defined. Missing vars: %s"
-                    (pr-str (set/difference @required-app-config-vars (set (keys app-config))))))
+    (assert (set/subset? @required-app-config (set (keys app-config)))
+            (format "Not all required APP configuration vars are defined. Missing vars: %s"
+                    (pr-str (set/difference @required-app-config (set (keys app-config))))))
     (alter-var-root #'app-config (constantly app-config))))
 
 (defn init!
@@ -140,11 +129,35 @@
    (init! (or (get (System/getProperties) "jboss.server.config.dir")
               (system-get-env "PWD"))))
   ([root-dir]
-   (let [config (get-env root-dir)]
-     (assert (set/subset? @required-vars (set (keys config)))
-             (format "Not all required configuration vars are defined. Missing vars: %s"
-                     (pr-str (set/difference @required-vars (set (keys config))))))
+   (let [config (read-env root-dir)]
+     (assert (set/subset? @required-env (set (keys config)))
+             (format "Not all required ENV configuration vars are defined. Missing vars: %s"
+                     (pr-str (set/difference @required-env (set (keys config))))))
      (alter-var-root #'config (constantly config))
 
-     (init-app-config! (get-var config "APPLICATION_ENVIRONMENT" "dev")))))
+     (init-app-config! (get* config "APPLICATION_ENVIRONMENT" "dev")))))
 
+
+
+(defmacro defenv
+  "
+   Usage:
+   (defenv
+    :app {sentry-url :sentry-dsn}
+    :env {oracle-url \"DATASTORES_ORACLE_WEBICON_HOSTNAME\"})
+
+   see README.md for determining whether your new configuration variable
+   falls under :env (infra-owned) or :app (IDG-owned)   
+   "
+  [& {:keys [app env] :as m}]
+  `(do
+     ~@(mapcat app-config-def app)
+     ~@(mapcat env-config-def env)))
+
+
+(comment
+  (require '[clj-config :refer [defenv]])
+
+  (defenv
+    :app {sentry-url :sentry-dsn}
+    :env {oracle-url "DATASTORES_ORACLE_WEBICON_HOSTNAME"}))

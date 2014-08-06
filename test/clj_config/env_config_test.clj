@@ -3,44 +3,44 @@
             [clj-config :refer :all]
             [clj-config.test-helper :refer :all]))
 
-(defn resetting-required-vars [f]
-  (reset! required-vars #{})
+(defn resetting-required-env [f]
+  (reset! required-env #{})
   (f))
 
-(use-fixtures :each silencing-info resetting-required-vars)
+(use-fixtures :each silencing-info resetting-required-env)
 
-(deftest get-env-with-ENV_FILE
+(deftest read-env-with-ENV_FILE
   (with-fake-env {"FOO" "BAR"
                   "ENV_FILE" "test/fixtures/sample_env.cfg"}
-    (let [computed-env (get-env "test/fixtures")]
-      (is (= "BAR" (get-var computed-env "FOO")))
-      (is (= "got it" (get-var computed-env "FROM_INFRA_FILE"))))))
+    (let [computed-env (read-env "test/fixtures")]
+      (is (= "BAR" (get* computed-env "FOO")))
+      (is (= "got it" (get* computed-env "FROM_INFRA_FILE"))))))
 
-(deftest get-env-without-ENV_FILE
+(deftest read-env-without-ENV_FILE
   (with-fake-env {"FOO" "BAR"}
-    (let [computed-env (get-env "test/fixtures")]
-      (is (= "BAR" (get-var computed-env "FOO")))
-      (is (= "hi" (get-var computed-env "FROM_ENV_LOCAL")))
-      (is (= "hello" (get-var computed-env "FROM_ENV"))))))
+    (let [computed-env (read-env "test/fixtures")]
+      (is (= "BAR" (get* computed-env "FOO")))
+      (is (= "hi" (get* computed-env "FROM_ENV_LOCAL")))
+      (is (= "hello" (get* computed-env "FROM_ENV"))))))
 
 (deftest environment-variables-beat-files
   (with-fake-env {"FROM_INFRA_FILE" "overridden"
                   "ENV_FILE" "test/fixtures/sample_env.cfg"}
-    (let [computed-env (get-env "test/fixtures")]
-      (is (= "overridden" (get-var computed-env "FROM_INFRA_FILE"))))) )
+    (let [computed-env (read-env "test/fixtures")]
+      (is (= "overridden" (get* computed-env "FROM_INFRA_FILE"))))))
 
-(deftest defconfig-populates-required-vars
-  (eval `(defconfig ~'default-port "JAVA_LISTENING_PORT"))
-  (is (= #{"JAVA_LISTENING_PORT"} @required-vars))
+(deftest defconfig-populates-required-env
+  (eval `(defenv :env {~'default-port "JAVA_LISTENING_PORT"}))
+  (is (= #{"JAVA_LISTENING_PORT"} @required-env))
 
-  (eval `(defconfig ~'foo "FOO_VALUE"))
-  (is (= #{"JAVA_LISTENING_PORT" "FOO_VALUE"} @required-vars)))
+  (eval `(defenv :env {~'foo "FOO_VALUE"}))
+  (is (= #{"JAVA_LISTENING_PORT" "FOO_VALUE"} @required-env)))
 
 (deftest init-verifies-presence-of-required-values
-  (swap! required-vars conj "IMPORTANT_BUT_MISSING_VALUE")
+  (swap! required-env conj "IMPORTANT_BUT_MISSING_VALUE")
   (is (thrown? AssertionError (init! "test/fixtures"))))
 
 (deftest deref-throws-when-config-is-uninitialized
-  (eval `(defconfig ~'foo "OHAI"))
+  (eval `(defenv :env {~'foo "OHAI"}))
   (is (thrown? clojure.lang.ExceptionInfo
-               (get-var config "OHAI" :ohai-value))))
+               (get* config "OHAI" :ohai-value))))
