@@ -40,13 +40,12 @@
                       :usr "mittens-default"
                       :pwd "m30w"}}
 
-   :production
-   {:sentry-dsn "prod sentry dsn"
-    :web-server-threads 10
-    :api-key "invariant"
-    :nested {:url "moarcats.gov"
-             :usr "mittens-prod"
-             :pwd "m30w"}}})
+   :production {:sentry-dsn "prod sentry dsn"
+                :web-server-threads 10
+                :api-key "invariant"
+                :nested {:url "moarcats.gov"
+                         :usr "mittens-prod"
+                         :pwd "m30w"}}})
 
 (deftest defconfig-populates-required-vars
   (eval `(defconfig :app {~'default-port :java-listening-port}))
@@ -113,7 +112,7 @@
   (let [env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"
              "APPLICATION_ENVIRONMENT" "ci"}]
     (eval `(do (in-ns 'clj-config.app-config-test)
-               (defconfig :app {~'ncfg :nested
+               (defconfig :app {~'ncfg    :nested
                                 ~'user   [:nested :usr]
                                 ~'pass   [:nested :pwd]})))
     (init-app-config! env)

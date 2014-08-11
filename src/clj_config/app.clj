@@ -71,12 +71,15 @@
   "asserts that the config.edn structure contains some required keys."
   [m]
   {:pre [(every? (partial contains? m)
-                 [:clj-config/environments
-                  :clj-config/default-key
-                  :clj-config/app-config])]}
-  {:envs    (get m :clj-config/environments)
-   :default (get m :clj-config/default-key)
-   :config  (get m :clj-config/app-config)})
+                 [:clj-config/default-key
+                  :clj-config/app-config
+                  :clj-config/environments])]}
+  {:default (get m :clj-config/default-key)
+   :config  (get m :clj-config/app-config)
+   :envs (let [envs (get m :clj-config/environments)]
+           (if (coll? envs)
+             (set envs)
+             #{envs}))})
 
 (defn resolve-app-config
   "Walks a config.edn map structure, resolving the env.
@@ -105,7 +108,12 @@
                (if (z/end? z)
                  (z/root z)
                  (if-let [kids (and (z/branch? z) (z/children z))]
-                   (if (some (some-fn envs coll?) (map first kids))
+                   (if (some (fn env? [k]
+                               (let [envs* (conj envs default)]
+                                 (or (contains? envs* k)
+                                     (and (coll? k)
+                                          (not-empty (set/intersection envs* (set k)))))))
+                             (map first kids))
                       (let [kids-map (reduce (fn [c kv]
                                                (into c (for [i (->vec (first kv))]
                                                          {i (second kv)})))
