@@ -31,14 +31,52 @@ config should be initialized by calling `init!`, e.g.
 (require '[clj-config :refer [defconfig init!]])
 
 (defconfig
-  foo "BAZ"
-  bar "QUX")
+  :env {foo "BAZ"
+        bar "QUX"}
+  :app {sentry-cfg :sentry          ; grab entire map
+        sentry-url [:sentry :dsn]   ; or just bits
+        sentry-usr [:sentry :usr]}) ; and pieces
 
 (init!) ;; call init! once as the app starts
 
 ;; @foo contains the value of BAZ
 ```
 
-`defconfig` creates delays `foo` and `bar`. `init!` will raise an
-exception if an environmental var declared in `defconfig` isn't
+`defconfig` creates delays `foo`, `bar`, `sentry-cfg`, `sentry-url`, and `sentry-usr`.
+`init!` will raise an exception if an environmental var declared in `defconfig` isn't
 present.
+
+(for :app vars, exception is raised if the app-config edn structure does not 
+ contain the keypath specified in defconfig)
+
+
+
+## app-config.edn
+
+```clojure
+
+{:sentry-dsn {:dev           nil
+              [:ci :qa]      "ci/qa sentry dsn"
+              #{:production} "prod sentry dsn"  ;; infra specifies 'production'
+              :default       "default dsn"}
+
+ :web-server-threads {:dev 80
+                      :ci 40
+                      :qa 20
+                      :production 10
+                      #{:default} 4}
+
+ :api-key "invariant"
+
+ :nested {:url "moarcats.gov"
+          :pwd "m30w"
+          :usr {[:dev :ci] "mittens-dev"    ;; vectors will be coerced to sets
+                #{:qa}     "mittens-qa"
+                :production "mittens-prod"
+                [:default] "mittens-default"}}}
+
+;; NOTE:
+;; The current version of clj-config is hard-wired to recognize :default as a fall-back.
+;; This bites, and will hopefully be made open to extensibility on the next go-round.
+
+```
