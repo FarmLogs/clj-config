@@ -1,10 +1,21 @@
 {:sentry-dsn {:dev nil
               [:ci :qa] "ci/qa sentry dsn"
-              #{:prod} "prod sentry dsn"}
+              #{:production} "prod sentry dsn"
+              :default "default dsn"}
 
  :web-server-threads {:dev 80
                       :ci 40
                       :qa 20
-                      :prod 10} ; oh noez!
+                      :production 10
+                      #{:default} 4}
 
- :api-key "invariant"}
+ :api-key "invariant"
+
+ :nested {:url "moarcats.gov"
+          :pwd "m30w"
+          :usr {[:dev :ci] "mittens-dev"
+
+                #{:qa}     "mittens-qa"
+
+                :production "mittens-prod"
+                [:default] "mittens-default"}}}

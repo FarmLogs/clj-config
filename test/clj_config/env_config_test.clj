@@ -13,27 +13,27 @@
   (with-fake-env {"FOO" "BAR"
                   "ENV_FILE" "test/fixtures/sample_env.cfg"}
     (let [computed-env (read-env "test/fixtures")]
-      (is (= "BAR" (get* computed-env "FOO")))
-      (is (= "got it" (get* computed-env "FROM_INFRA_FILE"))))))
+      (is (= "BAR" (get-in* computed-env "FOO")))
+      (is (= "got it" (get-in* computed-env "FROM_INFRA_FILE"))))))
 
 (deftest read-env-without-ENV_FILE
   (with-fake-env {"FOO" "BAR"}
     (let [computed-env (read-env "test/fixtures")]
-      (is (= "BAR" (get* computed-env "FOO")))
-      (is (= "hi" (get* computed-env "FROM_ENV_LOCAL")))
-      (is (= "hello" (get* computed-env "FROM_ENV"))))))
+      (is (= "BAR" (get-in* computed-env "FOO")))
+      (is (= "hi" (get-in* computed-env "FROM_ENV_LOCAL")))
+      (is (= "hello" (get-in* computed-env "FROM_ENV"))))))
 
 (deftest environment-variables-beat-files
   (with-fake-env {"FROM_INFRA_FILE" "overridden"
                   "ENV_FILE" "test/fixtures/sample_env.cfg"}
     (let [computed-env (read-env "test/fixtures")]
-      (is (= "overridden" (get* computed-env "FROM_INFRA_FILE"))))))
+      (is (= "overridden" (get-in* computed-env "FROM_INFRA_FILE"))))))
 
 (deftest defconfig-populates-required-env
-  (eval `(defenv :env {~'default-port "JAVA_LISTENING_PORT"}))
+  (eval `(defconfig :env {~'default-port "JAVA_LISTENING_PORT"}))
   (is (= #{"JAVA_LISTENING_PORT"} @required-env))
 
-  (eval `(defenv :env {~'foo "FOO_VALUE"}))
+  (eval `(defconfig :env {~'foo "FOO_VALUE"}))
   (is (= #{"JAVA_LISTENING_PORT" "FOO_VALUE"} @required-env)))
 
 (deftest init-verifies-presence-of-required-values
@@ -41,6 +41,6 @@
   (is (thrown? AssertionError (init! "test/fixtures"))))
 
 (deftest deref-throws-when-config-is-uninitialized
-  (eval `(defenv :env {~'foo "OHAI"}))
+  (eval `(defconfig :env {~'foo "OHAI"}))
   (is (thrown? clojure.lang.ExceptionInfo
-               (get* config "OHAI" :ohai-value))))
+               (get-in* config "OHAI" :ohai-value))))

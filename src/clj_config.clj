@@ -2,7 +2,8 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :refer [trim] :as s]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [clj-config.app :as app])
   (:import [java.util Properties]
            [java.io File]))
 
@@ -36,15 +37,23 @@
   [root basename]
   (clojure.string/join File/separator (list root basename)))
 
-(defn get*
-  "Get k from m, barf if not found (unless provided a default value)."
+(defn ->vec
+  [x]
+  (if (sequential? x)
+    x
+    (vector x)))
+
+(defn get-in*
+  "Get k from m, barf if not found (unless provided a default value).
+   Wrap k in a vector if k is not already 
+   "
   ([m k]
    (when-not m (throw (ex-info "config not initialized" {})))
-   (or (get m k)
+   (or (get-in m (->vec k))
        (throw (ex-info (str "config var " k " not set") {}))))
   ([m k not-found]
    (when-not m (throw (ex-info "config not initialized" {})))
-   (get m k not-found)))
+   (get-in m (->vec k) not-found)))
 
 (defn system-get-env
   ([] (System/getenv))
@@ -72,7 +81,7 @@
   [[name env-varname]]
   (assert (and (symbol? name) (string? env-varname)))
   `((swap! required-env conj ~env-varname)
-    (def ~name (delay (get* config ~env-varname)))))
+    (def ~name (delay (get-in* config ~env-varname)))))
 
 ;;;;;;;; app config
 
@@ -81,16 +90,11 @@
     (set value)
     #{value}))
 
-(defn transform-app-config [app-config env]
-  (reduce-kv (fn [acc k value-map]
-               (if-not (map? value-map)
-                 (assoc acc k value-map)
-                 (let [[_ value]
-                       (first (filter (fn [[env-key _]] (contains? (->set env-key) env))
-                                      value-map))]
-                   (assoc acc k value))))
-             {}
-             app-config))
+(defn transform-app-config
+  [app-config env]
+  (app/resolve-app-config {:envs #{:ci :dev :qa :production}
+                           :default :default}
+                          env app-config))
 
 (defn read-app-config [app-config-filename app-env]
   (when (and app-config-filename app-env)
@@ -105,9 +109,9 @@
 
 (defn app-config-def
   [[name env-varname]]
-  (assert (and (symbol? name) (keyword? env-varname)))
+  (assert (and (symbol? name) (every? keyword? (->vec env-varname))))
   `((swap! required-app-config conj ~env-varname)
-    (def ~name (delay (get* app-config ~env-varname)))))
+    (def ~name (delay (get-in* app-config ~env-varname)))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -117,9 +121,9 @@
 ;;;;;;;;;;;;;;;;;;;;
 
 (defn init-app-config! [application-environment]
-  (let [app-config (read-app-config (system-get-env "APP_OWNED_CONFIG_EDN_FILE")
-                                   application-environment)]
-    (assert (set/subset? @required-app-config (set (keys app-config)))
+  (let [app-config (read-app-config (system-get-env "CLJ_APP_CONFIG")
+                                    application-environment)]
+    (assert (every? (partial app/contains-keypath? app-config) @required-app-config)
             (format "Not all required APP configuration vars are defined. Missing vars: %s"
                     (pr-str (set/difference @required-app-config (set (keys app-config))))))
     (alter-var-root #'app-config (constantly app-config))))
@@ -135,14 +139,14 @@
                      (pr-str (set/difference @required-env (set (keys config))))))
      (alter-var-root #'config (constantly config))
 
-     (init-app-config! (get* config "APPLICATION_ENVIRONMENT" "dev")))))
+     (init-app-config! (get-in* config "APPLICATION_ENVIRONMENT" "dev")))))
 
 
 
-(defmacro defenv
+(defmacro defconfig
   "
    Usage:
-   (defenv
+   (defconfig
     :app {sentry-url :sentry-dsn}
     :env {oracle-url \"DATASTORES_ORACLE_WEBICON_HOSTNAME\"})
 
@@ -156,8 +160,8 @@
 
 
 (comment
-  (require '[clj-config :refer [defenv]])
+  (require '[clj-config :refer [defconfig]])
 
-  (defenv
+  (defconfig
     :app {sentry-url :sentry-dsn}
     :env {oracle-url "DATASTORES_ORACLE_WEBICON_HOSTNAME"}))
