@@ -60,8 +60,10 @@
     (is (= #{:java-listening-port :foo-value [:key :path]} @required-app-config))))
 
 (deftest init-app-config-verifies-required-values
-  (swap! required-app-config conj :important-but-missing-value)
-  (is (thrown? AssertionError (init-app-config! "dev"))))
+  (let [env {"APPLICATION_ENVIRONMENT" "dev"
+             "CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}]
+    (swap! required-app-config conj :important-but-missing-value)
+    (is (thrown? AssertionError (init-app-config! env)))))
 
 (deftest reading-and-transforming-app-config
   (let [config-path "test/fixtures/app_config.edn"]
@@ -71,27 +73,22 @@
     (is (= (expected :production) (read-app-config config-path "production")))))
 
 (deftest deref-app-config-values
-  (with-fake-env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}
+  (let [env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"
+             "APPLICATION_ENVIRONMENT" "ci"}]
     (eval `(do (in-ns 'clj-config.app-config-test)
                (defconfig :app {~'sentry-dsn :sentry-dsn})))
-    (init-app-config! "ci")
+    (init-app-config! env)
     (is (= "ci/qa sentry dsn" @@(resolve 'sentry-dsn)))))
 
 (deftest no-env-config-file
-  (with-fake-env {}
+  (let [env {"APPLICATION_ENVIRONMENT" "ci"}]
     (eval `(do (in-ns 'clj-config.app-config-test)
                (defconfig :app {~'sentry-dsn :sentry-dsn})))
-    (is (thrown? AssertionError (init-app-config! "ci")))))
-
-(deftest no-app-config-file
-  (with-fake-env {}
-    (eval `(do (in-ns 'clj-config.app-config-test)
-               (defconfig :app {~'sentry-dsn :sentry-dsn})))
-    (is (thrown? AssertionError (init-app-config! "ci")))))
+    (is (thrown? clojure.lang.ExceptionInfo (init-app-config! env)))))
 
 (deftest no-app-config-file-without-defconfig
   (with-fake-env {}
-    (init-app-config! "ci") ;; should not throw
+    (init-app-config! {}) ;; should not throw
     (is (= 1 1))))
 
 (deftest use-default-when-no-choice-for-env
@@ -103,20 +100,22 @@
                                          :envs #{:ci :dev :qa :production :staging}}
                                         :staging))))))
 (deftest defconfig-works-for-keypath
-  (with-fake-env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}
+  (let [env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"
+             "APPLICATION_ENVIRONMENT" "ci"}]
     (eval `(do (in-ns 'clj-config.app-config-test)
                (defconfig :app {~'user [:nested :usr]})))
-    (init-app-config! "ci")
+    (init-app-config! env)
     (is (= "mittens-dev" @@(resolve 'user)))))
 
 
 (deftest defconfig-works-at-multiple-depths
-  (with-fake-env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}
+  (let [env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"
+             "APPLICATION_ENVIRONMENT" "ci"}]
     (eval `(do (in-ns 'clj-config.app-config-test)
                (defconfig :app {~'ncfg :nested
                                 ~'user   [:nested :usr]
                                 ~'pass   [:nested :pwd]})))
-    (init-app-config! "ci")
+    (init-app-config! env)
     (is (=  {:url "moarcats.gov" :pwd "m30w" :usr "mittens-dev"}
             @@(resolve 'ncfg)))
     (is (= "mittens-dev" @@(resolve 'user)))

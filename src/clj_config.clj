@@ -45,7 +45,7 @@
 
 (defn get-in*
   "Get k from m, barf if not found (unless provided a default value).
-   Wrap k in a vector if k is not already 
+   Wrap k in a vector if k is not already
    "
   ([m k]
    (when-not m (throw (ex-info "config not initialized" {})))
@@ -120,9 +120,11 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;
 
-(defn init-app-config! [application-environment]
-  (let [app-config (read-app-config (system-get-env "CLJ_APP_CONFIG")
-                                    application-environment)]
+(defn init-app-config! [env]
+  (let [app-config-file (when (seq @required-app-config)
+                          (get-in* env "CLJ_APP_CONFIG"))
+        app-environment (get-in* env "APPLICATION_ENVIRONMENT" "dev")
+        app-config (read-app-config app-config-file app-environment)]
     (assert (every? (partial app/contains-keypath? app-config) @required-app-config)
             (format "Not all required APP configuration vars are defined. Missing vars: %s"
                     (pr-str (set/difference @required-app-config (set (keys app-config))))))
@@ -139,9 +141,7 @@
                      (pr-str (set/difference @required-env (set (keys config))))))
      (alter-var-root #'config (constantly config))
 
-     (init-app-config! (get-in* config "APPLICATION_ENVIRONMENT" "dev")))))
-
-
+     (init-app-config! config))))
 
 (defmacro defconfig
   "
@@ -151,13 +151,12 @@
     :env {oracle-url \"DATASTORES_ORACLE_WEBICON_HOSTNAME\"})
 
    see README.md for determining whether your new configuration variable
-   falls under :env (infra-owned) or :app (IDG-owned)   
+   falls under :env (infra-owned) or :app (IDG-owned)
    "
   [& {:keys [app env] :as m}]
   `(do
      ~@(mapcat app-config-def app)
      ~@(mapcat env-config-def env)))
-
 
 (comment
   (require '[clj-config :refer [defconfig]])
