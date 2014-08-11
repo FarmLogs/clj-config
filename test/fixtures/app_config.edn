@@ -1,21 +1,23 @@
-{:sentry-dsn {:dev nil
-              [:ci :qa] "ci/qa sentry dsn"
-              #{:production} "prod sentry dsn"
-              :default "default dsn"}
+{:clj-config/environments #{:dev :ci :qa :production}
+ :clj-config/default-key  :default
+ :clj-config/app-config   {:sentry-dsn {:dev nil
+                                        [:ci :qa] "ci/qa sentry dsn"
+                                        #{:production} "prod sentry dsn"
+                                        :default "default dsn"}
 
- :web-server-threads {:dev 80
-                      :ci 40
-                      :qa 20
-                      :production 10
-                      #{:default} 4}
+                           :web-server-threads {:dev 80
+                                                :ci 40
+                                                :qa 20
+                                                :production 10
+                                                #{:default} 4}
 
- :api-key "invariant"
+                           :api-key "invariant"
 
- :nested {:url "moarcats.gov"
-          :pwd "m30w"
-          :usr {[:dev :ci] "mittens-dev"
+                           :nested {:url "moarcats.gov"
+                                    :pwd "m30w"
+                                    :usr {[:dev :ci] "mittens-dev"
 
-                #{:qa}     "mittens-qa"
+                                          #{:qa}     "mittens-qa"
 
-                :production "mittens-prod"
-                [:default] "mittens-default"}}}
+                                          :production "mittens-prod"
+                                          [:default] "mittens-default"}}}}

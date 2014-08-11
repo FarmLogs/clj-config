@@ -90,19 +90,14 @@
     (set value)
     #{value}))
 
-(defn transform-app-config
-  [app-config env]
-  (app/resolve-app-config {:envs #{:ci :dev :qa :production}
-                           :default :default}
-                          env app-config))
-
 (defn read-app-config [app-config-filename app-env]
   (when (and app-config-filename app-env)
     (info "Loading app-owned environment from:" app-config-filename)
     (-> app-config-filename
         slurp
         edn/read-string
-        (transform-app-config (keyword app-env)))))
+        (app/prepare-config)
+        (app/resolve-app-config (keyword app-env)))))
 
 (def app-config nil)
 (def required-app-config (atom #{}))

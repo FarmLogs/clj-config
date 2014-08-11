@@ -67,6 +67,17 @@
        (not= ::not-found)))
 
 
+(defn prepare-config
+  "asserts that the config.edn structure contains some required keys."
+  [m]
+  {:pre [(every? (partial contains? m)
+                 [:clj-config/environments
+                  :clj-config/default-key
+                  :clj-config/app-config])]}
+  {:envs    (get m :clj-config/environments)
+   :default (get m :clj-config/default-key)
+   :config  (get m :clj-config/app-config)})
+
 (defn resolve-app-config
   "Walks a config.edn map structure, resolving the env.
 
@@ -74,11 +85,11 @@
     opt - map containing
     :envs      - PersistentSet of valid environments
     :default   - keyword indicating default (in case the current env is not represented at a given choice point)
+    :config    - an edn map stucture representing application config,
+                 possibly containing multiple options for a provided key.
     
     env    - the current application environment
-    config - an edn map stucture representing application config,
-             possibly containing multiple options for a provided key.
-
+    
     Example:
              {:sentry-dsn {[:ci :dev] \"\"
                             :qa       \"qa-url.sentry.com\"
@@ -88,27 +99,27 @@
              {:sentry-dsn \"qa-url.sentry.com\"}  ; ready for QA!
 
     "
-  [{:keys [envs default] :as opt} env config]
+  [{:keys [envs default config] :as opt} env]
   (let [walk (fn walker
                [z]
                (if (z/end? z)
                  (z/root z)
                  (if-let [kids (and (z/branch? z) (z/children z))]
                    (if (some (some-fn envs coll?) (map first kids))
-                     (let [kids-map (reduce (fn [c kv]
-                                              (into c (for [i (->vec (first kv))]
-                                                        {i (second kv)})))
-                                            {} kids)]
-                           (if (contains? kids-map env)
-                             (recur (z/next (set-val! z (get kids-map env)))) ;good
-                             (if (contains? kids-map default)
-                               (recur (z/next (set-val! z (get kids-map default))))
-                               (throw (ex-info (str "missing env: (" env ") "
-                                                    "at node: " (z/node z) "\n"
-                                                    "with no ::default specified.")
-                                               {:env env :envs (keys kids-map)})))))
-                       (recur (z/next z)))
-                     (recur (z/next z)))))]
-        (-> (map-zipper config)
-            z/next
-            walk)))
+                      (let [kids-map (reduce (fn [c kv]
+                                               (into c (for [i (->vec (first kv))]
+                                                         {i (second kv)})))
+                                             {} kids)]
+                        (if (contains? kids-map env)
+                          (recur (z/next (set-val! z (get kids-map env)))) ;good
+                          (if (contains? kids-map default)
+                            (recur (z/next (set-val! z (get kids-map default))))
+                            (throw (ex-info (str "missing env: (" env ") "
+                                                 "at node: " (z/node z) "\n"
+                                                 "with no :clj-config/default-key specified.")
+                                            {:env env :envs (keys kids-map)})))))
+                      (recur (z/next z)))
+                   (recur (z/next z)))))]
+    (-> (map-zipper config)
+        z/next
+        walk)))

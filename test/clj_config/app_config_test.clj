@@ -94,11 +94,12 @@
 (deftest use-default-when-no-choice-for-env
   (let [config-path "test/fixtures/app_config.edn"]
     (is (= (expected :staging)
-           (->> (slurp config-path)
-                (edn/read-string)
-                (app/resolve-app-config {:default :default
-                                         :envs #{:ci :dev :qa :production :staging}}
-                                        :staging))))))
+           (-> (slurp config-path)
+               (edn/read-string)
+               (app/prepare-config)
+               (update-in [:envs] (fnil conj #{}) :staging) ;
+               (app/resolve-app-config :staging))))))
+
 (deftest defconfig-works-for-keypath
   (let [env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"
              "APPLICATION_ENVIRONMENT" "ci"}]
