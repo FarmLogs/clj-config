@@ -48,12 +48,14 @@
    Wrap k in a vector if k is not already
    "
   ([m k]
-   (when-not m (throw (ex-info "config not initialized" {})))
-   (or (get-in m (->vec k))
-       (throw (ex-info (str "config var " k " not set") {}))))
+     (when-not m (throw (ex-info "config not initialized" {})))
+     (let [value (get-in m (->vec k) ::not-found)]
+       (if (= value ::not-found)
+         (throw (ex-info (str "config var " k " not set") {}))
+         value)))
   ([m k not-found]
-   (when-not m (throw (ex-info "config not initialized" {})))
-   (get-in m (->vec k) not-found)))
+     (when-not m (throw (ex-info "config not initialized" {})))
+     (get-in m (->vec k) not-found)))
 
 (defn system-get-env
   ([] (System/getenv))
