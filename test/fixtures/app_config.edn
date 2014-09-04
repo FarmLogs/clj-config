@@ -12,7 +12,8 @@
                                                 #{:default} 4}
 
                            :api-key "invariant"
-
+                           :false-value false
+                           
                            :nested {:url "moarcats.gov"
                                     :pwd "m30w"
                                     :usr {[:dev :ci] "mittens-dev"

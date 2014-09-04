@@ -15,6 +15,7 @@
   {:dev {:sentry-dsn nil
          :web-server-threads 80
          :api-key "invariant"
+         :false-value false
          :nested {:url "moarcats.gov"
                   :usr "mittens-dev"
                   :pwd "m30w"}}
@@ -22,6 +23,7 @@
    :ci {:sentry-dsn "ci/qa sentry dsn"
         :web-server-threads 40
         :api-key "invariant"
+        :false-value false
         :nested {:url "moarcats.gov"
                  :usr "mittens-dev"
                  :pwd "m30w"}}
@@ -29,6 +31,7 @@
    :qa {:sentry-dsn "ci/qa sentry dsn"
         :web-server-threads 20
         :api-key "invariant"
+        :false-value false
         :nested {:url "moarcats.gov"
                  :usr "mittens-qa"
                  :pwd "m30w"}}
@@ -36,6 +39,7 @@
    :staging {:sentry-dsn "default dsn"
              :web-server-threads 4
              :api-key "invariant"
+             :false-value false
              :nested {:url "moarcats.gov"
                       :usr "mittens-default"
                       :pwd "m30w"}}
@@ -43,6 +47,7 @@
    :production {:sentry-dsn "prod sentry dsn"
                 :web-server-threads 10
                 :api-key "invariant"
+                :false-value false
                 :nested {:url "moarcats.gov"
                          :usr "mittens-prod"
                          :pwd "m30w"}}})
@@ -63,6 +68,12 @@
              "CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}]
     (swap! required-app-config conj :important-but-missing-value)
     (is (thrown? AssertionError (init-app-config! env)))))
+
+(deftest false-values-satisfy-required-check 
+  (let [env {"APPLICATION_ENVIRONMENT" "dev"
+             "CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}]
+    (swap! required-app-config conj :false-value)
+    (is (init-app-config! env))))
 
 (deftest reading-and-transforming-app-config
   (let [config-path "test/fixtures/app_config.edn"]
