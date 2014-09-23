@@ -130,7 +130,7 @@
 (defn init!
   ([]
    (init! (or (get (System/getProperties) "jboss.server.config.dir")
-              (system-get-env "PWD"))))
+              (System/getProperty "user.dir"))))
   ([root-dir]
    (let [config (read-env root-dir)]
      (assert (set/subset? @required-env (set (keys config)))
