@@ -3,11 +3,12 @@
             [clj-config :refer :all]
             [clj-config.test-helper :refer :all]))
 
-(defn resetting-required-env [f]
+(defn resetting [f]
   (reset! required-env #{})
+  (alter-var-root #'config (constantly nil))
   (f))
 
-(use-fixtures :each silencing-info resetting-required-env)
+(use-fixtures :each silencing-info resetting)
 
 (deftest read-env-with-ENV_FILE
   (with-fake-env {"FOO" "BAR"
@@ -40,7 +41,21 @@
   (swap! required-env conj "IMPORTANT_BUT_MISSING_VALUE")
   (is (thrown? AssertionError (init! "test/fixtures"))))
 
+(deftest re-init-updates-env-vars
+  (with-fake-env {"ENV_FILE" "test/fixtures/sample_env.cfg"
+                  "CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}
+    (eval `(do (in-ns 'clj-config.env-config-test)
+               (defconfig :env {~'env-var-source "ENV_VAR_SOURCE"})))
+    (init! "test/fixtures"))
+  (is (= "sample_env.cfg" @@(resolve 'env-var-source)))
+  (with-fake-env {"ENV_FILE" "test/fixtures/.env.local"
+                  "CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}
+    (init! "test/fixtures"))
+  (is (= ".env.local" @@(resolve 'env-var-source))))
+
 (deftest deref-throws-when-config-is-uninitialized
-  (eval `(defconfig :env {~'foo "OHAI"}))
+  (eval `(do (in-ns 'clj-config.env-config-test)
+             (defconfig :env {~'foo "OHAI"})))
   (is (thrown? clojure.lang.ExceptionInfo
-               (get-in* config "OHAI" :ohai-value))))
+               @@(resolve 'foo))))
+

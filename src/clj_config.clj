@@ -83,7 +83,9 @@
   [[name env-varname]]
   (assert (and (symbol? name) (string? env-varname)))
   `((swap! required-env conj ~env-varname)
-    (def ~name (delay (get-in* config ~env-varname)))))
+    (def ~name
+      (reify clojure.lang.IDeref
+        (deref [this] (get-in* config ~env-varname))))))
 
 ;;;;;;;; app config
 
@@ -108,7 +110,9 @@
   [[name env-varname]]
   (assert (and (symbol? name) (every? keyword? (->vec env-varname))))
   `((swap! required-app-config conj ~env-varname)
-    (def ~name (delay (get-in* app-config ~env-varname)))))
+    (def ~name
+      (reify clojure.lang.IDeref
+        (deref [this] (get-in* app-config ~env-varname))))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;

@@ -5,11 +5,12 @@
             [clj-config.app :as app]
             [clj-config.test-helper :refer :all]))
 
-(defn resetting-required-vars [f]
+(defn resetting [f]
   (reset! required-app-config #{})
+  (alter-var-root #'app-config (constantly nil))
   (f))
 
-(use-fixtures :each silencing-info resetting-required-vars)
+(use-fixtures :each silencing-info resetting)
 
 (def expected
   {:dev {:sentry-dsn nil
@@ -69,7 +70,7 @@
     (swap! required-app-config conj :important-but-missing-value)
     (is (thrown? AssertionError (init-app-config! env)))))
 
-(deftest false-values-satisfy-required-check 
+(deftest false-values-satisfy-required-check
   (let [env {"APPLICATION_ENVIRONMENT" "dev"
              "CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}]
     (swap! required-app-config conj :false-value)
@@ -118,7 +119,6 @@
     (init-app-config! env)
     (is (= "mittens-dev" @@(resolve 'user)))))
 
-
 (deftest defconfig-works-at-multiple-depths
   (let [env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"
              "APPLICATION_ENVIRONMENT" "ci"}]
@@ -132,5 +132,13 @@
     (is (= "mittens-dev" @@(resolve 'user)))
     (is (= "m30w"        @@(resolve 'pass)))))
 
-
+(deftest re-init-updates-app-vars
+  (let [env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"
+             "APPLICATION_ENVIRONMENT" "ci"}]
+    (eval `(do (in-ns 'clj-config.app-config-test)
+               (defconfig :app {~'user [:nested :usr]})))
+    (init-app-config! env)
+    (is (= "mittens-dev" @@(resolve 'user)))
+    (init-app-config! (assoc env "APPLICATION_ENVIRONMENT" "qa"))
+    (is (= "mittens-qa" @@(resolve 'user)))))
 
