@@ -1,25 +1,20 @@
-(ns clj-config ;; TODO: no single-segment ns
+(ns clj-config.core
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :refer [trim] :as s]
             [clojure.set :as set]
+            [clojure.tools.logging :as log]
             [clj-config.app :as app])
   (:import [java.util Properties]
            [java.io File]))
 
 (def +env-files+ [".env" ".env.local"])
 
-(defn info [& args]
-  (apply println args))
-
-(defn error [& args]
-  (apply println args))
-
 (defn trim-quotes
   [string]
   (s/replace string #"\"(.*)\"" "$1"))
 
-(defn f->p
+(defn- f->p
   "
   Turn a file name into a Properties object (which happens to be a Hashtable
   that also knows how to parse name=val, #comments).
@@ -27,11 +22,11 @@
   [f]
   (let [file (io/as-file f)]
     (if (.exists file)
-      (do (info "Loading environment from:" f)
+      (do (log/info "Loading environment from:" f)
           (reduce (fn [acc [k v]] (assoc acc k (-> v trim trim-quotes)))
                   {}
                   (doto (Properties.) (.load (io/input-stream file)))))
-      (error (format "Failed to load environment from '%s'. File does not exist." f)))))
+      (log/errorf "Failed to load environment from '%s'. File does not exist." f))))
 
 (defn make-path
   [root basename]
@@ -85,7 +80,7 @@
   `((swap! required-env conj ~env-varname)
     (def ~name
       (reify clojure.lang.IDeref
-        (deref [this] (get-in* config ~env-varname))))))
+        (deref [this#] (get-in* config ~env-varname))))))
 
 ;;;;;;;; app config
 
@@ -96,7 +91,7 @@
 
 (defn read-app-config [app-config-filename app-env]
   (when (and app-config-filename app-env)
-    (info "Loading app-owned environment from:" app-config-filename)
+    (log/info "Loading app-owned environment from:" app-config-filename)
     (-> app-config-filename
         slurp
         edn/read-string
@@ -112,7 +107,7 @@
   `((swap! required-app-config conj ~env-varname)
     (def ~name
       (reify clojure.lang.IDeref
-        (deref [this] (get-in* app-config ~env-varname))))))
+        (deref [this#] (get-in* app-config ~env-varname))))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -160,7 +155,7 @@
      ~@(mapcat env-config-def env)))
 
 (comment
-  (require '[clj-config :refer [defconfig]])
+  (require '[clj-config.core :refer [defconfig]])
 
   (defconfig
     :app {sentry-url :sentry-dsn}

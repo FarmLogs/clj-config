@@ -1,6 +1,6 @@
 (ns clj-config.env-config-test
   (:require [clojure.test :refer :all]
-            [clj-config :refer :all]
+            [clj-config.core :refer :all]
             [clj-config.test-helper :refer :all]))
 
 (defn resetting [f]
@@ -8,7 +8,7 @@
   (alter-var-root #'config (constantly nil))
   (f))
 
-(use-fixtures :each silencing-info resetting)
+(use-fixtures :each silencing-logging resetting)
 
 (deftest read-env-with-ENV_FILE
   (with-fake-env {"FOO" "BAR"
