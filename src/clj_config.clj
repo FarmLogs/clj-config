@@ -80,7 +80,7 @@
   `((swap! required-env conj ~env-varname)
     (def ~name
       (reify clojure.lang.IDeref
-        (deref [this] (get-in* config ~env-varname))))))
+        (deref [this#] (get-in* config ~env-varname))))))
 
 ;;;;;;;; app config
 
@@ -107,7 +107,7 @@
   `((swap! required-app-config conj ~env-varname)
     (def ~name
       (reify clojure.lang.IDeref
-        (deref [this] (get-in* app-config ~env-varname))))))
+        (deref [this#] (get-in* app-config ~env-varname))))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;
