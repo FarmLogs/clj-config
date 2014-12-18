@@ -1,6 +1,6 @@
 (ns clj-config.env-config-test
   (:require [clojure.test :refer :all]
-            [clj-config :refer :all]
+            [clj-config.core :refer :all]
             [clj-config.test-helper :refer :all]))
 
 (defn resetting [f]

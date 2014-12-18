@@ -1,8 +1,8 @@
 (ns clj-config.app-config-test
   (:require [clojure.test :refer :all]
             [clojure.edn :as edn]
-            [clj-config :refer :all]
             [clj-config.app :as app]
+            [clj-config.core :refer :all]
             [clj-config.test-helper :refer :all]))
 
 (defn resetting [f]

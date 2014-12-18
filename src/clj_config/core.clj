@@ -1,4 +1,4 @@
-(ns clj-config ;; TODO: no single-segment ns
+(ns clj-config.core
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :refer [trim] :as s]
@@ -14,7 +14,7 @@
   [string]
   (s/replace string #"\"(.*)\"" "$1"))
 
-(defn f->p
+(defn- f->p
   "
   Turn a file name into a Properties object (which happens to be a Hashtable
   that also knows how to parse name=val, #comments).
@@ -155,7 +155,7 @@
      ~@(mapcat env-config-def env)))
 
 (comment
-  (require '[clj-config :refer [defconfig]])
+  (require '[clj-config.core :refer [defconfig]])
 
   (defconfig
     :app {sentry-url :sentry-dsn}

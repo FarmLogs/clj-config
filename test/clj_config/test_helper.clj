@@ -1,5 +1,5 @@
 (ns clj-config.test-helper
-  (:require [clj-config :refer [system-get-env]]
+  (:require [clj-config.core :refer [system-get-env]]
             [clojure.tools.logging :as log]))
 
 (defn silencing-logging [f]
