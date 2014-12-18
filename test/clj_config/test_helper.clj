@@ -1,8 +1,9 @@
 (ns clj-config.test-helper
-  (:require [clj-config :refer [system-get-env info]]))
+  (:require [clj-config :refer [system-get-env]]
+            [clojure.tools.logging :as log]))
 
-(defn silencing-info [f]
-  (with-redefs [info (constantly nil)]
+(defn silencing-logging [f]
+  (with-redefs [log/log* (constantly nil)]
     (f)))
 
 (defn make-fake-get-env [env]

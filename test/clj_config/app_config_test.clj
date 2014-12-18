@@ -10,7 +10,7 @@
   (alter-var-root #'app-config (constantly nil))
   (f))
 
-(use-fixtures :each silencing-info resetting)
+(use-fixtures :each silencing-logging resetting)
 
 (def expected
   {:dev {:sentry-dsn nil

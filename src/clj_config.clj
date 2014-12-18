@@ -3,17 +3,12 @@
             [clojure.java.io :as io]
             [clojure.string :refer [trim] :as s]
             [clojure.set :as set]
+            [clojure.tools.logging :as log]
             [clj-config.app :as app])
   (:import [java.util Properties]
            [java.io File]))
 
 (def +env-files+ [".env" ".env.local"])
-
-(defn info [& args]
-  (apply println args))
-
-(defn error [& args]
-  (apply println args))
 
 (defn trim-quotes
   [string]
@@ -27,11 +22,11 @@
   [f]
   (let [file (io/as-file f)]
     (if (.exists file)
-      (do (info "Loading environment from:" f)
+      (do (log/info "Loading environment from:" f)
           (reduce (fn [acc [k v]] (assoc acc k (-> v trim trim-quotes)))
                   {}
                   (doto (Properties.) (.load (io/input-stream file)))))
-      (error (format "Failed to load environment from '%s'. File does not exist." f)))))
+      (log/errorf "Failed to load environment from '%s'. File does not exist." f))))
 
 (defn make-path
   [root basename]
@@ -96,7 +91,7 @@
 
 (defn read-app-config [app-config-filename app-env]
   (when (and app-config-filename app-env)
-    (info "Loading app-owned environment from:" app-config-filename)
+    (log/info "Loading app-owned environment from:" app-config-filename)
     (-> app-config-filename
         slurp
         edn/read-string
