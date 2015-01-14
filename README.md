@@ -53,6 +53,7 @@ present.
 
 Make a config fixture in your test namespace and call `(make-config-fixture ...)`
 
+```clojure
 (def +my-sample-config+
   {:rabbitmq
    {:exchange
@@ -64,6 +65,7 @@ Make a config fixture in your test namespace and call `(make-config-fixture ...)
  
 (use-fixtures :once
   (make-config-fixture +my-sample-config+))
+```
 
 ## app-config.edn
 
