@@ -49,7 +49,21 @@ present.
 (for :app vars, exception is raised if the app-config edn structure does not 
  contain the keypath specified in defconfig)
 
+## Testing
 
+Make a config fixture in your test namespace and call `(make-config-fixture ...)`
+
+(def +my-sample-config+
+  {:rabbitmq
+   {:exchange
+    {:mail
+     {:name "Mail"
+      :queues
+      {:incoming {:name "message-api.mail.Incoming" :routing-key "mail.incoming"}
+       :outgoing {:name "message-api.mail.Outgoing" :routing-key "mail.outgoing"}}}}}})
+ 
+(use-fixtures :once
+  (make-config-fixture +my-sample-config+))
 
 ## app-config.edn
 
