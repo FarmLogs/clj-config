@@ -116,9 +116,10 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;
 
-(defn init-app-config! [env]
+(defn init-app-config!
+  [env root-dir]
   (let [app-config-file (when (seq @required-app-config)
-                          (get-in* env "CLJ_APP_CONFIG"))
+                          (get-in* env "CLJ_APP_CONFIG" (str root-dir (System/getProperty "file.separator") "config.edn")))
         app-environment (get-in* env "APPLICATION_ENVIRONMENT" "dev")
         app-config (read-app-config app-config-file app-environment)]
     (assert (every? (partial app/contains-keypath? app-config) @required-app-config)
@@ -137,7 +138,7 @@
                      (pr-str (set/difference @required-env (set (keys config))))))
      (alter-var-root #'config (constantly config))
 
-     (init-app-config! config))))
+     (init-app-config! config root-dir))))
 
 (defmacro defconfig
   "
