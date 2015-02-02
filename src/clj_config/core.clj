@@ -124,7 +124,9 @@
         app-config (read-app-config app-config-file app-environment)]
     (assert (every? (partial app/contains-keypath? app-config) @required-app-config)
             (format "Not all required APP configuration vars are defined. Missing vars: %s"
-                    (pr-str (set/difference @required-app-config (set (keys app-config))))))
+                    (pr-str (remove (partial app/contains-keypath?
+                                             app-config)
+                                    @required-app-config))))
     (alter-var-root #'app-config (constantly app-config))))
 
 (defn init!
