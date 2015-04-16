@@ -153,9 +153,30 @@
    falls under :env (infra-owned) or :app (IDG-owned)
    "
   [& {:keys [app env] :as m}]
-  `(do
-     ~@(mapcat app-config-def app)
-     ~@(mapcat env-config-def env)))
+  (let [config-map (reduce-kv
+                    (fn [config env config-map]
+                      (assoc config
+                             env
+                             (if (symbol? config-map)
+                               (if-let [v (ns-resolve *ns* config-map)]
+                                 (let [dv (deref v)]
+                                   (if (nil? dv)
+                                     (throw (ex-info "nil config spec"
+                                                     {:symbol config-map
+                                                      :config-type env
+                                                      :ns *ns*}))
+                                     dv))
+                                 (throw (ex-info "error resolving symbol"
+                                                 {:symbol config-map
+                                                  :config-type env
+                                                  :ns *ns*})))
+                               config-map)))
+                    {}
+                    m)
+        {:keys [app env]} config-map]
+    `(do
+       ~@(mapcat app-config-def app)
+       ~@(mapcat env-config-def env))))
 
 (comment
   (require '[clj-config.core :refer [defconfig]])
