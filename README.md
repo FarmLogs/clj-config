@@ -28,7 +28,7 @@ Config values should be declared using the `defconfig` macro, and
 config should be initialized by calling `init!`, e.g.
 
 ```clojure
-(require '[clj-config :refer [defconfig init!]])
+(require '[clj-config.core :refer [defconfig init!]])
 
 (defconfig
   :env {foo "BAZ"
