@@ -26,7 +26,7 @@
           (reduce (fn [acc [k v]] (assoc acc k (-> v trim trim-quotes)))
                   {}
                   (doto (Properties.) (.load (io/input-stream file)))))
-      (log/errorf "Failed to load environment from '%s'. File does not exist." f))))
+      (log/warnf "Failed to load environment from '%s'. File does not exist." f))))
 
 (defn make-path
   [root basename]
