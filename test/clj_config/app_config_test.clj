@@ -95,7 +95,7 @@
   (let [env {"APPLICATION_ENVIRONMENT" "ci"}]
     (eval `(do (in-ns 'clj-config.app-config-test)
                (defconfig :app {~'sentry-dsn :sentry-dsn})))
-    (is (thrown? clojure.lang.ExceptionInfo (init-app-config! env)))))
+    (is (thrown? java.io.FileNotFoundException (init-app-config! env)))))
 
 (deftest no-app-config-file-without-defconfig
   (with-fake-env {}
@@ -141,4 +141,3 @@
     (is (= "mittens-dev" @@(resolve 'user)))
     (init-app-config! (assoc env "APPLICATION_ENVIRONMENT" "qa"))
     (is (= "mittens-qa" @@(resolve 'user)))))
-
