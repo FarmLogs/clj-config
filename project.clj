@@ -7,4 +7,5 @@
                  [org.clojure/tools.logging "0.3.1"]]
   :repositories [["primedia"
                   {:url "http://nexus.idg.primedia.com/nexus/content/repositories/primedia"
-                   :sign-releases false}]])
+                   :sign-releases false}]]
+  :signing {:gpg-key "164E1387"})
