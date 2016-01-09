@@ -117,17 +117,18 @@
 ;;;;;;;;;;;;;;;;;;;;
 
 (defn init-app-config!
-  [env root-dir]
-  (let [app-config-file (when (seq @required-app-config)
-                          (get-in* env "CLJ_APP_CONFIG" (str root-dir (System/getProperty "file.separator") "config.edn")))
-        app-environment (get-in* env "APPLICATION_ENVIRONMENT" "dev")
-        app-config (read-app-config app-config-file app-environment)]
-    (assert (every? (partial app/contains-keypath? app-config) @required-app-config)
-            (format "Not all required APP configuration vars are defined. Missing vars: %s"
-                    (pr-str (remove (partial app/contains-keypath?
-                                             app-config)
-                                    @required-app-config))))
-    (alter-var-root #'app-config (constantly app-config))))
+  ([env] (init-app-config! env (System/getProperty "user.dir")))
+  ([env root-dir]
+   (let [app-config-file (when (seq @required-app-config)
+                           (get-in* env "CLJ_APP_CONFIG" (str root-dir (System/getProperty "file.separator") "config.edn")))
+         app-environment (get-in* env "APPLICATION_ENVIRONMENT" "dev")
+         app-config (read-app-config app-config-file app-environment)]
+     (assert (every? (partial app/contains-keypath? app-config) @required-app-config)
+             (format "Not all required APP configuration vars are defined. Missing vars: %s"
+                     (pr-str (remove (partial app/contains-keypath?
+                                              app-config)
+                                     @required-app-config))))
+     (alter-var-root #'app-config (constantly app-config)))))
 
 (defn init!
   ([]
