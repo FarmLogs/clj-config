@@ -4,10 +4,28 @@
   (-valid? [this value] "Return true if the value is valid, false otherwise."))
 
 (extend-type clojure.lang.IFn
+(defn ->vec
+  [x]
+  (if (sequential? x)
+    x
+    (vector x)))
 
   IValidate
   (-valid? [this value]
     (this value)))
+(defn get-in*
+  "Get k from m, barf if not found (unless provided a default value).
+   Wrap k in a vector if k is not already
+   "
+  ([m k]
+   (when-not m (throw (ex-info "config not initialized" {})))
+   (let [value (get-in m (->vec k) ::not-found)]
+     (if (= value ::not-found)
+       (throw (ex-info (str "config var " k " not set") {}))
+       value)))
+  ([m k not-found]
+   (when-not m (throw (ex-info "config not initialized" {})))
+   (get-in m (->vec k) not-found)))
 
 (defmulti classify-definition
   (fn [env definition]

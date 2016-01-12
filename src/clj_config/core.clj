@@ -33,26 +33,6 @@
   [root basename]
   (clojure.string/join File/separator (list root basename)))
 
-(defn ->vec
-  [x]
-  (if (sequential? x)
-    x
-    (vector x)))
-
-(defn get-in*
-  "Get k from m, barf if not found (unless provided a default value).
-   Wrap k in a vector if k is not already
-   "
-  ([m k]
-     (when-not m (throw (ex-info "config not initialized" {})))
-     (let [value (get-in m (->vec k) ::not-found)]
-       (if (= value ::not-found)
-         (throw (ex-info (str "config var " k " not set") {}))
-         value)))
-  ([m k not-found]
-     (when-not m (throw (ex-info "config not initialized" {})))
-     (get-in m (->vec k) not-found)))
-
 (defn system-get-env
   ([] (System/getenv))
   ([key] (System/getenv key)))
@@ -104,11 +84,11 @@
 
 (defn app-config-def
   [[name env-varname]]
-  (assert (and (symbol? name) (every? keyword? (->vec env-varname))))
   `((swap! required-app-config conj ~(read-config-def :app env-varname))
     (def ~name
       (reify clojure.lang.IDeref
         (deref [this#] (get-in* app-config ~env-varname))))))
+  (assert (and (symbol? name) (every? keyword? (entry/->vec env-varname))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;
