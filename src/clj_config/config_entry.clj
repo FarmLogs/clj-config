@@ -1,18 +1,11 @@
 (ns clj-config.config-entry)
 
-(defprotocol IValidate
-  (-valid? [this value] "Return true if the value is valid, false otherwise."))
-
-(extend-type clojure.lang.IFn
 (defn ->vec
   [x]
   (if (sequential? x)
     x
     (vector x)))
 
-  IValidate
-  (-valid? [this value]
-    (this value)))
 (defn get-in*
   "Get k from m, barf if not found (unless provided a default value).
    Wrap k in a vector if k is not already
@@ -27,56 +20,52 @@
    (when-not m (throw (ex-info "config not initialized" {})))
    (get-in m (->vec k) not-found)))
 
-(defmulti classify-definition
-  (fn [env definition]
-    [env (type definition)]))
+(defprotocol IValidate
+  (-valid? [this value] "Return true if the value is valid, false otherwise."))
 
-(defmethod classify-definition :default
-  [env definition]
-  (throw (ex-info (format "Invalid config definition: %s env: %s ns:"
-                          (pr-str definition) (pr-str env) (pr-str *ns*))
-                  {:env env
-                   :ns *ns*
-                   :definition definition})))
+(defprotocol ILookup
+  (-lookup [this config-data]))
 
-(defmethod classify-definition [:env String]
-  [_ _]
-  :unvalidated)
+(extend-protocol IValidate
 
-(defmethod classify-definition [:env clojure.lang.IPersistentVector]
-  [_ _]
-  :validated)
+  clojure.lang.IFn
+  (-valid? [this value]
+    (this value))
 
-(defmethod classify-definition [:app clojure.lang.IPersistentVector]
-  [_ definition]
-  (if (vector? (first definition))
-    :validated
-    :unvalidated))
+  java.util.regex.Pattern
+  (-valid? [this value]
+    (if (re-find this value)
+      true
+      false)))
 
-(defmethod classify-definition [:app clojure.lang.Keyword]
-  [_ _]
-  :unvalidated)
+(defrecord ConfigEntry
+    [env lookup-key validator]
 
-(defmulti read-config-def
-  (fn [env definition]
-    [env (classify-definition env definition)]))
+  IValidate
+  (-valid? [this config-data]
+    (->> (-lookup this config-data)
+         (-valid? validator)))
 
-(defmethod read-config-def [:env :unvalidated]
-  [_ definition]
-  {:lookup-key definition
-   :validator `(constantly true)})
+  ILookup
+  (-lookup [this config-data]
+    (let [value (get-in* config-data lookup-key (:default this))]
+      (if (= ::none value)
+        (throw (ex-info (format "Config data not found: %s"
+                                (pr-str (dissoc this :validator)))
+                        this))
+        value)))
 
-(defmethod read-config-def [:env :validated]
-  [_ definition]
-  {:lookup-key (first definition)
-   :validator  (second definition)})
+  clojure.lang.Named
+  (getName [_] lookup-key)
+  (getNamespace [_] env))
 
-(defmethod read-config-def [:app :unvalidated]
-  [_ definition]
-  {:lookup-key definition
-   :validator `(constantly true)})
+(defmulti ->config-entry
+  (fn [env config-entry options] env))
 
-(defmethod read-config-def [:app :validated]
-  [_ definition]
-  {:lookup-key (first definition)
-   :validator (second definition)})
+(def +default-validator+ (constantly true))
+(defmethod ->config-entry :default
+  [env lookup-key {:keys [default validator] :as options
+                   :or {validator +default-validator+
+                        default ::none}}]
+  (assoc (->ConfigEntry env lookup-key validator)
+         :default default))

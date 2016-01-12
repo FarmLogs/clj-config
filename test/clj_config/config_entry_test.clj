@@ -2,44 +2,44 @@
   (:require [clojure.test :refer :all]
             [clj-config.config-entry :refer :all]))
 
-(deftest test-classify-definition
-  (testing "Happy Path"
-    (are [env definition classification]
-        (= (classify-definition env definition)
-           classification)
+(deftest test-config-entry-ctor
+  (let [config-data {"HOME" "foo"
+                     "NUMBER" 129
+                     :some {:key {:path "bar"}}}]
+    (testing "Happy Path"
+      (are [env definition config-value]
+          (let [[entry options] definition
+                config-entry (->config-entry env entry options)]
+            (and (-valid? config-entry config-data)
+                 (= (-lookup config-entry config-data)
+                    config-value)))
 
-      :env "foo"                 :unvalidated
-      :env ["foo" "something"]   :validated
+        :env ["HOME" {:validator string?}] "foo"
+        :env ["HOME"]                      "foo"
+        :env ["HOME" {:default "bar"}]     "foo"
 
-      :app :bare-keyword                       :unvalidated
-      :app [:some :key :path]                  :unvalidated
-      :app [[:some :key :path] :anything-at-all] :validated))
+        :env ["DOESNT_EXIST" {:default 42}]   42
+        :app [[:doesnt :exist] {:default 42}] 42
 
-  (testing "Invalid definition"
-    (is (thrown? clojure.lang.ExceptionInfo (classify-definition :env 'symbol))
-        "The classify-definition multimethod should throw an exception
-         when it encounters a config definition it doesn't understand.")
-    (let [data (ex-data (try (classify-definition :env 'symbol)
-                             (catch clojure.lang.ExceptionInfo e e)))]
-      (are [key expected-value]
-          (= (get data key ::not-found) expected-value)
+        :app [[:some :key :path] {:validator string?}] "bar"
+        :app [[:some :key :path]]                      "bar"
+        :app [[:some :key :path] {:default "foo"}]     "bar"
+        :app [:some]                                   (:some config-data)))
 
-        :ns *ns*
-        :env :env
-        :definition 'symbol))))
+    (testing "Config value doesn't exist"
+      (let [config-entry (->config-entry :env "DOESNT_EXIST" nil)]
+        (is (thrown? clojure.lang.ExceptionInfo (-lookup config-entry config-data)))
+        (is (thrown? clojure.lang.ExceptionInfo (-valid? config-entry config-data)))))
 
-(deftest test-read-config-def
-  (testing "Happy Path"
-    (are [env definition lookup-key validator]
-        (let [result (read-config-def env definition)]
-          (and (= validator (:validator result))
-               (= lookup-key (:lookup-key result))))
+    (testing "Invalid config value"
+      (are [env lookup-key opts]
+          (not (-valid? (->config-entry env lookup-key opts)
+                        config-data))
 
-      :env `["HOME" (constantly false)] "HOME" `(constantly false)
-      :env `"HOME"                      "HOME" `(constantly true)
+        :env "NUMBER"       {:validator string?}
+        :env "DOESNT_EXIST" {:validator string?
+                             :default 42}
 
-      :app `[[:some :key :path] (constantly false)]
-            [:some :key :path] `(constantly false)
-
-      :app `:bare-keyword :bare-keyword `(constantly true)
-      :app `[:some :key :path]  [:some :key :path] `(constantly true))))
+        :app [:some]        {:validator string?}
+        :app [:doesnt-exist] {:validator string?
+                              :default 42}))))

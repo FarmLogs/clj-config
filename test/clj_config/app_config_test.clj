@@ -3,6 +3,7 @@
             [clojure.edn :as edn]
             [clj-config.app :as app]
             [clj-config.core :refer :all]
+            [clj-config.config-entry :as entry]
             [clj-config.test-helper :refer :all]))
 
 (defn resetting [f]
@@ -75,14 +76,16 @@
 
 (deftest init-app-config-verifies-required-values
   (let [env {"APPLICATION_ENVIRONMENT" "dev"
-             "CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}]
-    (swap! required-app-config conj :important-but-missing-value)
+             "CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}
+        config-entry (entry/->config-entry :app :important-but-missing-value nil)]
+    (swap! required-app-config conj config-entry)
     (is (thrown? AssertionError (init-app-config! env)))))
 
 (deftest false-values-satisfy-required-check
   (let [env {"APPLICATION_ENVIRONMENT" "dev"
-             "CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}]
-    (swap! required-app-config conj :false-value)
+             "CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}
+        config-entry (entry/->config-entry :app :false-value nil)]
+    (swap! required-app-config conj config-entry)
     (is (init-app-config! env))))
 
 (deftest reading-and-transforming-app-config

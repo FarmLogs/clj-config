@@ -5,7 +5,7 @@
             [clojure.set :as set]
             [clojure.tools.logging :as log]
             [clj-config.app :as app]
-            [clj-config.config-entry :as entry :refer [read-config-def]])
+            [clj-config.config-entry :as entry :refer [->config-entry]])
   (:import [java.util Properties]
            [java.io File]))
 
@@ -57,11 +57,11 @@
 
 (defn env-config-def
   [[name env-varname opts]]
-  (let [{:keys [lookup-key validator] :as def} (read-config-def :env env-varname)]
-    `((swap! required-env conj ~def)
+  `((let [entry# (->config-entry :env ~env-varname ~opts)]
+      (swap! required-env conj entry#)
       (def ~name
         (reify clojure.lang.IDeref
-          (deref [this#] (get-in* config ~lookup-key)))))))
+          (deref [this#] (entry/-lookup entry# config)))))))
 
 ;;;;;;;; app config
 
@@ -83,12 +83,13 @@
 (def required-app-config (atom #{}))
 
 (defn app-config-def
-  [[name env-varname]]
-  `((swap! required-app-config conj ~(read-config-def :app env-varname))
-    (def ~name
-      (reify clojure.lang.IDeref
-        (deref [this#] (get-in* app-config ~env-varname))))))
+  [[name env-varname opts]]
   (assert (and (symbol? name) (every? keyword? (entry/->vec env-varname))))
+  `((let [config-entry# (->config-entry :app ~env-varname ~opts)]
+      (swap! required-app-config conj config-entry#)
+      (def ~name
+        (reify clojure.lang.IDeref
+          (deref [this#] (entry/-lookup config-entry# app-config)))))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -109,7 +110,7 @@
                                     (map :lookup-key required-app-config)))))
     (assert (->> validators
                  (map (fn [[key-path validator]]
-                        [validator (get-in* actual-config key-path ::not-found)]))
+                        [validator (entry/get-in* actual-config key-path ::not-found)]))
                  (every? #(entry/-valid? (first %) (second %))))
             ;; (format "Not all required APP variables pass validation: %s"
             ;;         (->> validators
@@ -128,33 +129,26 @@
   ([env] (init-app-config! env (System/getProperty "user.dir")))
   ([env root-dir]
    (let [app-config-file (when (seq @required-app-config)
-                           (get-in* env "CLJ_APP_CONFIG" (str root-dir (System/getProperty "file.separator") "config.edn")))
-         app-environment (get-in* env "APPLICATION_ENVIRONMENT" "dev")
+                           (entry/get-in* env "CLJ_APP_CONFIG"
+                                          (str root-dir (System/getProperty "file.separator")
+                                               "config.edn")))
+         app-environment (entry/get-in* env "APPLICATION_ENVIRONMENT" "dev")
          app-config (read-app-config app-config-file app-environment)]
      (when (valid-app-config? @required-app-config app-config)
        (alter-var-root #'app-config (constantly app-config))))))
 
 
 (defn valid-env-config?
-  [required-env actual-config]
-  (let [validators (into {} (map (juxt :lookup-key :validator) required-env))
-        required-names (into #{} (keys validators))]
+  [env-config-entries actual-config]
+  (let [required-names (into #{} (map name (remove :default env-config-entries)))]
     (assert (set/subset? required-names (set (keys actual-config)))
             (format "Not all required ENV configuration vars are defined. Missing vars: %s"
                     (pr-str (set/difference required-names (set (keys config))))))
-    (assert (->> validators
-                 (map (fn [[key validator]]
-                        [validator (get actual-config key ::not-found)]))
-                 (every? #(entry/-valid? (first %) (second %))))
-            (format "Not all required ENV variables pass validation: %s"
-                    (->> validators
-                         (map (fn [[k v]] [(entry/-valid? (get validators k (constantly false))
-                                                          v)
-                                           k]))
-                         (remove (fn [[passed? keyname]] passed?))
-                         (map (comp pr-str second))
-                         (sort)
-                         (interpose " ")
+    (assert (every? #(entry/-valid? % actual-config) env-config-entries)
+            (format "Not all required ENV configuration vars are valid: %s"
+                    (->> (remove #(entry/-valid? % actual-config) env-config-entries)
+                         (map name)
+                         (interpose ", ")
                          (apply str))))
     true))
 
@@ -166,7 +160,6 @@
    (let [config (read-env root-dir)]
      (when (valid-env-config? @required-env config)
        (alter-var-root #'config (constantly config))
-
        (init-app-config! config root-dir)))))
 
 (defmacro defconfig
@@ -214,9 +207,10 @@
 
   (do
     (defconfig
-      :env [[home "HOME" (constantly true)]])
+      :env [[home "HOME" {:validator #"[/A-Za-z0-9]"}]
+            [bazorz "FLKD" {:default "foo"}]])
     (init!)
-    @home)
+    @bazorz)
 
 
   )
