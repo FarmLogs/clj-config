@@ -55,20 +55,20 @@
                          :pwd "m30w"}}})
 
 (deftest defconfig-populates-required-vars
-  (eval `(defconfig :app {~'default-port :java-listening-port}))
+  (eval `(defconfig :app [[~'default-port :java-listening-port]]))
   (is (= #{:java-listening-port}
          (->>  @required-app-config
                (map :lookup-key)
                (into #{}))))
 
-  (eval `(defconfig :app {~'foo :foo-value}))
+  (eval `(defconfig :app [[~'foo :foo-value]]))
   (is (= #{:java-listening-port :foo-value}
          (->> @required-app-config
               (map :lookup-key)
               (into #{}))))
 
   (testing "correctly handles key-path"
-    (eval `(defconfig :app {~'bar [:key :path]}))
+    (eval `(defconfig :app [[~'bar [:key :path]]]))
     (is (= #{:java-listening-port :foo-value [:key :path]}
            (->> @required-app-config
                 (map :lookup-key)
@@ -99,14 +99,14 @@
   (let [env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"
              "APPLICATION_ENVIRONMENT" "ci"}]
     (eval `(do (in-ns 'clj-config.app-config-test)
-               (defconfig :app {~'sentry-dsn :sentry-dsn})))
+               (defconfig :app [[~'sentry-dsn :sentry-dsn]])))
     (init-app-config! env)
     (is (= "ci/qa sentry dsn" @@(resolve 'sentry-dsn)))))
 
 (deftest no-env-config-file
   (let [env {"APPLICATION_ENVIRONMENT" "ci"}]
     (eval `(do (in-ns 'clj-config.app-config-test)
-               (defconfig :app {~'sentry-dsn :sentry-dsn})))
+               (defconfig :app [[~'sentry-dsn :sentry-dsn]])))
     (is (thrown? java.io.FileNotFoundException (init-app-config! env)))))
 
 (deftest no-app-config-file-without-defconfig
@@ -127,7 +127,7 @@
   (let [env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"
              "APPLICATION_ENVIRONMENT" "ci"}]
     (eval `(do (in-ns 'clj-config.app-config-test)
-               (defconfig :app {~'user [:nested :usr]})))
+               (defconfig :app [[~'user [:nested :usr]]])))
     (init-app-config! env)
     (is (= "mittens-dev" @@(resolve 'user)))))
 
@@ -135,9 +135,9 @@
   (let [env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"
              "APPLICATION_ENVIRONMENT" "ci"}]
     (eval `(do (in-ns 'clj-config.app-config-test)
-               (defconfig :app {~'ncfg    :nested
-                                ~'user   [:nested :usr]
-                                ~'pass   [:nested :pwd]})))
+               (defconfig :app [[~'ncfg    :nested]
+                                [~'user   [:nested :usr]]
+                                [~'pass   [:nested :pwd]]])))
     (init-app-config! env)
     (is (=  {:url "moarcats.gov" :pwd "m30w" :usr "mittens-dev"}
             @@(resolve 'ncfg)))
@@ -148,7 +148,7 @@
   (let [env {"CLJ_APP_CONFIG" "test/fixtures/app_config.edn"
              "APPLICATION_ENVIRONMENT" "ci"}]
     (eval `(do (in-ns 'clj-config.app-config-test)
-               (defconfig :app {~'user [:nested :usr]})))
+               (defconfig :app [[~'user [:nested :usr]]])))
     (init-app-config! env)
     (is (= "mittens-dev" @@(resolve 'user)))
     (init-app-config! (assoc env "APPLICATION_ENVIRONMENT" "qa"))
