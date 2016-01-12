@@ -23,8 +23,8 @@
 
             (fn mzip-make-node
               [x children]
-              (if (map? x) 
-                (into {} children) 
+              (if (map? x)
+                (into {} children)
                 (assoc x 1 (into {} children))))
             m))
 
@@ -42,18 +42,18 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Used when validating that app-config contains all required vars  
+;; Used when validating that app-config contains all required vars
 (defn keys-in
   "courtesy of A.Webb:
    http://stackoverflow.com/a/21770247"
-  [m] 
-  (letfn [(branch? [[path m]] (map? m)) 
-          (children [[path m]] (for [[k v] m] [(conj path k) v]))] 
-    (let [key-paths (if (empty? m) 
+  [m]
+  (letfn [(branch? [[path m]] (map? m))
+          (children [[path m]] (for [[k v] m] [(conj path k) v]))]
+    (let [key-paths (if (empty? m)
                       []
-                      (loop [t (z/zipper branch? children nil [[] m]), paths []] 
-                        (cond (z/end? t) paths 
-                              (z/branch? t) (recur (z/next t), paths) 
+                      (loop [t (z/zipper branch? children nil [[] m]), paths []]
+                        (cond (z/end? t) paths
+                              (z/branch? t) (recur (z/next t), paths)
                               :leaf (recur (z/next t), (conj paths (first (z/node t)))))))]
 
       (reduce (fn [c x]
@@ -90,9 +90,9 @@
     :default   - keyword indicating default (in case the current env is not represented at a given choice point)
     :config    - an edn map stucture representing application config,
                  possibly containing multiple options for a provided key.
-    
+
     env    - the current application environment
-    
+
     Example:
              {:sentry-dsn {[:ci :dev] \"\"
                             :qa       \"qa-url.sentry.com\"

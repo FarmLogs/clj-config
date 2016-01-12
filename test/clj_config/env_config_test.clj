@@ -1,7 +1,8 @@
 (ns clj-config.env-config-test
   (:require [clojure.test :refer :all]
             [clj-config.core :refer :all]
-            [clj-config.test-helper :refer :all]))
+            [clj-config.test-helper :refer :all]
+            [clj-config.config-entry :refer [get-in*]]))
 
 (defn resetting [f]
   (reset! required-env #{})
@@ -32,10 +33,16 @@
 
 (deftest defconfig-populates-required-env
   (eval `(defconfig :env {~'default-port "JAVA_LISTENING_PORT"}))
-  (is (= #{"JAVA_LISTENING_PORT"} @required-env))
+  (is (= #{"JAVA_LISTENING_PORT"}
+         (->> @required-env
+              (map :lookup-key)
+              (into #{}))))
 
   (eval `(defconfig :env {~'foo "FOO_VALUE"}))
-  (is (= #{"JAVA_LISTENING_PORT" "FOO_VALUE"} @required-env)))
+  (is (= #{"JAVA_LISTENING_PORT" "FOO_VALUE"}
+         (->> @required-env
+              (map :lookup-key)
+              (into #{})))))
 
 (deftest init-verifies-presence-of-required-values
   (swap! required-env conj "IMPORTANT_BUT_MISSING_VALUE")
@@ -58,4 +65,3 @@
              (defconfig :env {~'foo "OHAI"})))
   (is (thrown? clojure.lang.ExceptionInfo
                @@(resolve 'foo))))
-
