@@ -79,7 +79,7 @@
              "CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}
         config-entry (entry/->config-entry :app :important-but-missing-value nil)]
     (swap! required-app-config conj config-entry)
-    (is (thrown? clojure.lang.ExceptionInfo (init-app-config! env)))))
+    (is (thrown? AssertionError (init-app-config! env)))))
 
 (deftest false-values-satisfy-required-check
   (let [env {"APPLICATION_ENVIRONMENT" "dev"

@@ -100,14 +100,18 @@
 
 (defn valid-app-config?
   [app-config-entries actual-config]
-  (let [required-names (into #{} (map name (remove entry/has-default? app-config-entries)))]
-    (assert (set/subset? required-names (set (keys actual-config)))
+  (let [required-names (->> (remove entry/has-default? app-config-entries)
+                            (map :lookup-key)
+                            (into #{}))]
+    (assert (every? (partial app/contains-keypath? actual-config) required-names)
             (format "Not all required APP configuration vars are defined. Missing vars: %s"
-                    (pr-str (set/difference required-names (set (keys actual-config))))))
+                    (pr-str (remove (partial app/contains-keypath?
+                                             actual-config)
+                                    required-names))))
     (assert (every? #(entry/-valid? % actual-config) app-config-entries)
             (format "Not all required APP configuration vars are valid: %s"
                     (->> (remove #(entry/-valid? % actual-config) app-config-entries)
-                         (map name)
+                         (map :lookup-key)
                          (interpose ", ")
                          (apply str))))
     true))
@@ -127,14 +131,16 @@
 
 (defn valid-env-config?
   [env-config-entries actual-config]
-  (let [required-names (into #{} (map name (remove entry/has-default? env-config-entries)))]
+  (let [required-names (->> (remove entry/has-default? env-config-entries)
+                            (map :lookup-key)
+                            (into #{}))]
     (assert (set/subset? required-names (set (keys actual-config)))
             (format "Not all required ENV configuration vars are defined. Missing vars: %s"
                     (pr-str (set/difference required-names (set (keys actual-config))))))
     (assert (every? #(entry/-valid? % actual-config) env-config-entries)
             (format "Not all required ENV configuration vars are valid: %s"
                     (->> (remove #(entry/-valid? % actual-config) env-config-entries)
-                         (map name)
+                         (map :lookup-key)
                          (interpose ", ")
                          (apply str))))
     true))
