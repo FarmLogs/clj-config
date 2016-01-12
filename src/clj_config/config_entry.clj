@@ -38,6 +38,9 @@
       true
       false)))
 
+(def has-default?
+  (comp #{::none} #(get % :default)))
+
 (defrecord ConfigEntry
     [env lookup-key validator]
 

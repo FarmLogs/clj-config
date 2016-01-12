@@ -100,7 +100,7 @@
 
 (defn valid-app-config?
   [app-config-entries actual-config]
-  (let [required-names (into #{} (map name (remove :default app-config-entries)))]
+  (let [required-names (into #{} (map name (remove entry/has-default? app-config-entries)))]
     (assert (set/subset? required-names (set (keys actual-config)))
             (format "Not all required APP configuration vars are defined. Missing vars: %s"
                     (pr-str (set/difference required-names (set (keys actual-config))))))
@@ -127,7 +127,7 @@
 
 (defn valid-env-config?
   [env-config-entries actual-config]
-  (let [required-names (into #{} (map name (remove :default env-config-entries)))]
+  (let [required-names (into #{} (map name (remove entry/has-default? env-config-entries)))]
     (assert (set/subset? required-names (set (keys actual-config)))
             (format "Not all required ENV configuration vars are defined. Missing vars: %s"
                     (pr-str (set/difference required-names (set (keys actual-config))))))
