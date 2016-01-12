@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [clj-config.core :refer :all]
             [clj-config.test-helper :refer :all]
-            [clj-config.config-entry :refer [get-in*]]))
+            [clj-config.config-entry :as entry :refer [get-in*]]))
 
 (defn resetting [f]
   (reset! required-env #{})
@@ -45,7 +45,7 @@
               (into #{})))))
 
 (deftest init-verifies-presence-of-required-values
-  (swap! required-env conj "IMPORTANT_BUT_MISSING_VALUE")
+  (swap! required-env conj (entry/->config-entry :env "IMPORTANT_BUT_MISSING_VALUE" nil))
   (is (thrown? AssertionError (init! "test/fixtures"))))
 
 (deftest re-init-updates-env-vars

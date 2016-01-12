@@ -38,8 +38,9 @@
       true
       false)))
 
+(def +default-sentinel+ ::none)
 (def has-default?
-  (comp #{::none} #(get % :default)))
+  (comp not #{+default-sentinel+} #(get % :default)))
 
 (defrecord ConfigEntry
     [env lookup-key validator]
@@ -56,11 +57,7 @@
         (throw (ex-info (format "Config data not found: %s"
                                 (pr-str (dissoc this :validator)))
                         this))
-        value)))
-
-  clojure.lang.Named
-  (getName [_] lookup-key)
-  (getNamespace [_] env))
+        value))))
 
 (defmulti ->config-entry
   (fn [env config-entry options] env))
@@ -69,6 +66,6 @@
 (defmethod ->config-entry :default
   [env lookup-key {:keys [default validator] :as options
                    :or {validator +default-validator+
-                        default ::none}}]
+                        default +default-sentinel+}}]
   (assoc (->ConfigEntry env lookup-key validator)
          :default default))
