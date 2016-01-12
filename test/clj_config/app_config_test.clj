@@ -55,14 +55,23 @@
 
 (deftest defconfig-populates-required-vars
   (eval `(defconfig :app {~'default-port :java-listening-port}))
-  (is (= #{:java-listening-port} @required-app-config))
+  (is (= #{:java-listening-port}
+         (->>  @required-app-config
+               (map :lookup-key)
+               (into #{}))))
 
   (eval `(defconfig :app {~'foo :foo-value}))
-  (is (= #{:java-listening-port :foo-value} @required-app-config))
+  (is (= #{:java-listening-port :foo-value}
+         (->> @required-app-config
+              (map :lookup-key)
+              (into #{}))))
 
   (testing "correctly handles key-path"
     (eval `(defconfig :app {~'bar [:key :path]}))
-    (is (= #{:java-listening-port :foo-value [:key :path]} @required-app-config))))
+    (is (= #{:java-listening-port :foo-value [:key :path]}
+           (->> @required-app-config
+                (map :lookup-key)
+                (into #{}))))))
 
 (deftest init-app-config-verifies-required-values
   (let [env {"APPLICATION_ENVIRONMENT" "dev"

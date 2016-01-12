@@ -4,7 +4,8 @@
             [clojure.string :refer [trim] :as s]
             [clojure.set :as set]
             [clojure.tools.logging :as log]
-            [clj-config.app :as app])
+            [clj-config.app :as app]
+            [clj-config.config-entry :as entry :refer [read-config-def]])
   (:import [java.util Properties]
            [java.io File]))
 
@@ -75,12 +76,12 @@
 (def required-env (atom #{}))
 
 (defn env-config-def
-  [[name env-varname]]
-  (assert (and (symbol? name) (string? env-varname)))
-  `((swap! required-env conj ~env-varname)
-    (def ~name
-      (reify clojure.lang.IDeref
-        (deref [this#] (get-in* config ~env-varname))))))
+  [[name env-varname opts]]
+  (let [{:keys [lookup-key validator] :as def} (read-config-def :env env-varname)]
+    `((swap! required-env conj ~def)
+      (def ~name
+        (reify clojure.lang.IDeref
+          (deref [this#] (get-in* config ~lookup-key)))))))
 
 ;;;;;;;; app config
 
@@ -104,7 +105,7 @@
 (defn app-config-def
   [[name env-varname]]
   (assert (and (symbol? name) (every? keyword? (->vec env-varname))))
-  `((swap! required-app-config conj ~env-varname)
+  `((swap! required-app-config conj ~(read-config-def :app env-varname))
     (def ~name
       (reify clojure.lang.IDeref
         (deref [this#] (get-in* app-config ~env-varname))))))
@@ -116,6 +117,33 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;
 
+(defn valid-app-config?
+  [required-app-config actual-config]
+  (let [validators (into {} (map (juxt :lookup-key :validator) required-app-config))]
+    (assert (->> required-app-config
+                 (map :lookup-key)
+                 (every? (partial app/contains-keypath? actual-config)))
+            (format "Not all required APP configuration vars are defined. Missing vars: %s"
+                    (pr-str (remove (partial app/contains-keypath?
+                                             actual-config)
+                                    (map :lookup-key required-app-config)))))
+    (assert (->> validators
+                 (map (fn [[key-path validator]]
+                        [validator (get-in* actual-config key-path ::not-found)]))
+                 (every? #(entry/-valid? (first %) (second %))))
+            ;; (format "Not all required APP variables pass validation: %s"
+            ;;         (->> validators
+            ;;              (map (fn [[k v]] [(entry/-valid? (get validators k (constantly false))
+            ;;                                               v)
+            ;;                                k]))
+            ;;              (remove (fn [[passed? keyname]] passed?))
+            ;;              (map (comp pr-str second))
+            ;;              (sort)
+            ;;              (interpose " ")
+            ;;              (apply str)))
+            )
+    true))
+
 (defn init-app-config!
   ([env] (init-app-config! env (System/getProperty "user.dir")))
   ([env root-dir]
@@ -123,12 +151,32 @@
                            (get-in* env "CLJ_APP_CONFIG" (str root-dir (System/getProperty "file.separator") "config.edn")))
          app-environment (get-in* env "APPLICATION_ENVIRONMENT" "dev")
          app-config (read-app-config app-config-file app-environment)]
-     (assert (every? (partial app/contains-keypath? app-config) @required-app-config)
-             (format "Not all required APP configuration vars are defined. Missing vars: %s"
-                     (pr-str (remove (partial app/contains-keypath?
-                                              app-config)
-                                     @required-app-config))))
-     (alter-var-root #'app-config (constantly app-config)))))
+     (when (valid-app-config? @required-app-config app-config)
+       (alter-var-root #'app-config (constantly app-config))))))
+
+
+(defn valid-env-config?
+  [required-env actual-config]
+  (let [validators (into {} (map (juxt :lookup-key :validator) required-env))
+        required-names (into #{} (keys validators))]
+    (assert (set/subset? required-names (set (keys actual-config)))
+            (format "Not all required ENV configuration vars are defined. Missing vars: %s"
+                    (pr-str (set/difference required-names (set (keys config))))))
+    (assert (->> validators
+                 (map (fn [[key validator]]
+                        [validator (get actual-config key ::not-found)]))
+                 (every? #(entry/-valid? (first %) (second %))))
+            (format "Not all required ENV variables pass validation: %s"
+                    (->> validators
+                         (map (fn [[k v]] [(entry/-valid? (get validators k (constantly false))
+                                                          v)
+                                           k]))
+                         (remove (fn [[passed? keyname]] passed?))
+                         (map (comp pr-str second))
+                         (sort)
+                         (interpose " ")
+                         (apply str))))
+    true))
 
 (defn init!
   ([]
@@ -136,12 +184,10 @@
               (System/getProperty "user.dir"))))
   ([root-dir]
    (let [config (read-env root-dir)]
-     (assert (set/subset? @required-env (set (keys config)))
-             (format "Not all required ENV configuration vars are defined. Missing vars: %s"
-                     (pr-str (set/difference @required-env (set (keys config))))))
-     (alter-var-root #'config (constantly config))
+     (when (valid-env-config? @required-env config)
+       (alter-var-root #'config (constantly config))
 
-     (init-app-config! config root-dir))))
+       (init-app-config! config root-dir)))))
 
 (defmacro defconfig
   "
@@ -184,4 +230,13 @@
 
   (defconfig
     :app {sentry-url :sentry-dsn}
-    :env {oracle-url "DATASTORES_ORACLE_WEBICON_HOSTNAME"}))
+    :env {oracle-url "DATASTORES_ORACLE_WEBICON_HOSTNAME"})
+
+  (do
+    (defconfig
+      :env [[home "HOME" (constantly true)]])
+    (init!)
+    @home)
+
+
+  )
