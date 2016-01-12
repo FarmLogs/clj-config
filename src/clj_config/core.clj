@@ -189,15 +189,5 @@
   (require '[clj-config.core :refer [defconfig]])
 
   (defconfig
-    :app {sentry-url :sentry-dsn}
-    :env {oracle-url "DATASTORES_ORACLE_WEBICON_HOSTNAME"})
-
-  (do
-    (defconfig
-      :env [[home "HOME" {:validator #"[/A-Za-z0-9]"}]
-            [bazorz "FLKD" {:default "foo"}]])
-    (init!)
-    @bazorz)
-
-
-  )
+    :app [[sentry-url :sentry-dsn]]
+    :env [[oracle-url "DATASTORES_ORACLE_WEBICON_HOSTNAME"]]))
