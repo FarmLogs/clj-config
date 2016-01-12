@@ -99,30 +99,17 @@
 ;;;;;;;;;;;;;;;;;;;;
 
 (defn valid-app-config?
-  [required-app-config actual-config]
-  (let [validators (into {} (map (juxt :lookup-key :validator) required-app-config))]
-    (assert (->> required-app-config
-                 (map :lookup-key)
-                 (every? (partial app/contains-keypath? actual-config)))
+  [app-config-entries actual-config]
+  (let [required-names (into #{} (map name (remove :default app-config-entries)))]
+    (assert (set/subset? required-names (set (keys actual-config)))
             (format "Not all required APP configuration vars are defined. Missing vars: %s"
-                    (pr-str (remove (partial app/contains-keypath?
-                                             actual-config)
-                                    (map :lookup-key required-app-config)))))
-    (assert (->> validators
-                 (map (fn [[key-path validator]]
-                        [validator (entry/get-in* actual-config key-path ::not-found)]))
-                 (every? #(entry/-valid? (first %) (second %))))
-            ;; (format "Not all required APP variables pass validation: %s"
-            ;;         (->> validators
-            ;;              (map (fn [[k v]] [(entry/-valid? (get validators k (constantly false))
-            ;;                                               v)
-            ;;                                k]))
-            ;;              (remove (fn [[passed? keyname]] passed?))
-            ;;              (map (comp pr-str second))
-            ;;              (sort)
-            ;;              (interpose " ")
-            ;;              (apply str)))
-            )
+                    (pr-str (set/difference required-names (set (keys actual-config))))))
+    (assert (every? #(entry/-valid? % actual-config) app-config-entries)
+            (format "Not all required APP configuration vars are valid: %s"
+                    (->> (remove #(entry/-valid? % actual-config) app-config-entries)
+                         (map name)
+                         (interpose ", ")
+                         (apply str))))
     true))
 
 (defn init-app-config!
@@ -143,7 +130,7 @@
   (let [required-names (into #{} (map name (remove :default env-config-entries)))]
     (assert (set/subset? required-names (set (keys actual-config)))
             (format "Not all required ENV configuration vars are defined. Missing vars: %s"
-                    (pr-str (set/difference required-names (set (keys config))))))
+                    (pr-str (set/difference required-names (set (keys actual-config))))))
     (assert (every? #(entry/-valid? % actual-config) env-config-entries)
             (format "Not all required ENV configuration vars are valid: %s"
                     (->> (remove #(entry/-valid? % actual-config) env-config-entries)
