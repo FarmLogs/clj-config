@@ -16,9 +16,12 @@
      (if (= value ::not-found)
        (throw (ex-info (str "config var " k " not set") {}))
        value)))
-  ([m k not-found]
-   (when-not m (throw (ex-info "config not initialized" {})))
-   (get-in m (->vec k) not-found)))
+  ([m k {:keys [default parse-fn] :or {parse-fn identity}}]
+     (when-not m (throw (ex-info "config not initialized" {})))
+     (let [value (get-in m (->vec k) ::not-found)]
+       (if (= value ::not-found)
+         default
+         (parse-fn value)))))
 
 (defprotocol IValidate
   (-valid? [this value] "Return true if the value is valid, false otherwise."))
@@ -52,7 +55,7 @@
 
   ILookup
   (-lookup [this config-data]
-    (let [value (get-in* config-data lookup-key (:default this))]
+    (let [value (get-in* config-data lookup-key this)]
       (if (= ::none value)
         (throw (ex-info (format "Config data not found: %s"
                                 (pr-str (dissoc this :validator)))

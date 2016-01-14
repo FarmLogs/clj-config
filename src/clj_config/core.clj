@@ -121,9 +121,9 @@
   ([env root-dir]
    (let [app-config-file (when (seq @required-app-config)
                            (entry/get-in* env "CLJ_APP_CONFIG"
-                                          (str root-dir (System/getProperty "file.separator")
-                                               "config.edn")))
-         app-environment (entry/get-in* env "APPLICATION_ENVIRONMENT" "dev")
+                                          {:default
+                                           (str root-dir (System/getProperty "file.separator") "config.edn")}))
+         app-environment (entry/get-in* env "APPLICATION_ENVIRONMENT" {:default "dev"})
          app-config (read-app-config app-config-file app-environment)]
      (when (valid-app-config? @required-app-config app-config)
        (alter-var-root #'app-config (constantly app-config))))))
