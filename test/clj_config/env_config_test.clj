@@ -1,7 +1,8 @@
 (ns clj-config.env-config-test
   (:require [clojure.test :refer :all]
             [clj-config.core :refer :all]
-            [clj-config.test-helper :refer :all]))
+            [clj-config.test-helper :refer :all]
+            [clj-config.config-entry :as entry :refer [get-in*]]))
 
 (defn resetting [f]
   (reset! required-env #{})
@@ -31,21 +32,27 @@
       (is (= "overridden" (get-in* computed-env "FROM_INFRA_FILE"))))))
 
 (deftest defconfig-populates-required-env
-  (eval `(defconfig :env {~'default-port "JAVA_LISTENING_PORT"}))
-  (is (= #{"JAVA_LISTENING_PORT"} @required-env))
+  (eval `(defconfig :env [[~'default-port "JAVA_LISTENING_PORT"]]))
+  (is (= #{"JAVA_LISTENING_PORT"}
+         (->> @required-env
+              (map :lookup-key)
+              (into #{}))))
 
-  (eval `(defconfig :env {~'foo "FOO_VALUE"}))
-  (is (= #{"JAVA_LISTENING_PORT" "FOO_VALUE"} @required-env)))
+  (eval `(defconfig :env [[~'foo "FOO_VALUE"]]))
+  (is (= #{"JAVA_LISTENING_PORT" "FOO_VALUE"}
+         (->> @required-env
+              (map :lookup-key)
+              (into #{})))))
 
 (deftest init-verifies-presence-of-required-values
-  (swap! required-env conj "IMPORTANT_BUT_MISSING_VALUE")
+  (swap! required-env conj (entry/->config-entry :env "IMPORTANT_BUT_MISSING_VALUE" nil))
   (is (thrown? AssertionError (init! "test/fixtures"))))
 
 (deftest re-init-updates-env-vars
   (with-fake-env {"ENV_FILE" "test/fixtures/sample_env.cfg"
                   "CLJ_APP_CONFIG" "test/fixtures/app_config.edn"}
     (eval `(do (in-ns 'clj-config.env-config-test)
-               (defconfig :env {~'env-var-source "ENV_VAR_SOURCE"})))
+               (defconfig :env [[~'env-var-source "ENV_VAR_SOURCE"]])))
     (init! "test/fixtures"))
   (is (= "sample_env.cfg" @@(resolve 'env-var-source)))
   (with-fake-env {"ENV_FILE" "test/fixtures/.env.local"
@@ -55,7 +62,6 @@
 
 (deftest deref-throws-when-config-is-uninitialized
   (eval `(do (in-ns 'clj-config.env-config-test)
-             (defconfig :env {~'foo "OHAI"})))
+             (defconfig :env [[~'foo "OHAI"]])))
   (is (thrown? clojure.lang.ExceptionInfo
                @@(resolve 'foo))))
-

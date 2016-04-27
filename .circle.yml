@@ -1,0 +1,8 @@
+---
+deployment:
+  master:
+    branch: master
+    commands:
+      - echo -e "$GPG_SECRET_KEY" > .private.key
+      - gpg --batch --yes --allow-secret-key --import .private.key
+      
