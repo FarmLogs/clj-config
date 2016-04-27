@@ -67,8 +67,12 @@
 
 (def +default-validator+ (constantly true))
 (defmethod ->config-entry :default
-  [env lookup-key {:keys [default validator] :as options
+  [env lookup-key {:keys [default validator parse-fn] :as options
                    :or {validator +default-validator+
-                        default +default-sentinel+}}]
-  (assoc (->ConfigEntry env lookup-key validator)
-         :default default))
+                        default +default-sentinel+
+                        parse-fn identity}}]
+  (map->ConfigEntry {:default default
+                     :env env
+                     :lookup-key lookup-key
+                     :parse-fn parse-fn
+                     :validator validator}))
