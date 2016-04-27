@@ -4,8 +4,9 @@
 
 (deftest test-config-entry-ctor
   (let [config-data {"HOME" "foo"
-                     "NUMBER" 129
-                     :some {:key {:path "bar"}}}]
+                     "NUMBER" "129"
+                     :some {:key {:path "bar"}
+                            :other {:key 1337}}}]
     (testing "Happy Path"
       (are [env definition config-value]
           (let [[entry options] definition
@@ -13,6 +14,9 @@
             (and (-valid? config-entry config-data)
                  (= (-lookup config-entry config-data)
                     config-value)))
+
+        :env ["NUMBER" {:parse-fn #(Integer/parseInt %)}] 129
+        :app [[:some :other :key] {:parse-fn str}] "1337"
 
         :env ["HOME" {:validator string?}] "foo"
         :env ["HOME"]                      "foo"
@@ -36,10 +40,16 @@
           (not (-valid? (->config-entry env lookup-key opts)
                         config-data))
 
-        :env "NUMBER"       {:validator string?}
+        :env "NUMBER"       {:validator integer?}
         :env "DOESNT_EXIST" {:validator string?
                              :default 42}
 
-        :app [:some]        {:validator string?}
-        :app [:doesnt-exist] {:validator string?
-                              :default 42}))))
+        :app [:some]        {:validator string?}))
+
+    (testing "Validators run after parsers"
+      (are [env lookup-key opts]
+          (-valid? (->config-entry env lookup-key opts)
+                   config-data)
+
+        :env "NUMBER"       {:validator integer?
+                             :parse-fn #(Integer/parseInt %)}))))
