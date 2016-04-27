@@ -7,5 +7,8 @@
                  [org.clojure/tools.logging "0.3.1"]]
   :repositories [["primedia"
                   {:url "http://nexus.idg.primedia.com/nexus/content/repositories/primedia"
-                   :sign-releases false}]]
+                   :sign-releases false}]
+                 ["farmlogs-internal" {:url "s3p://fl-maven-repo/mvn"
+                                       :username ~(System/getenv "AMAZON_KEY")
+                                       :passphrase ~(System/getenv "AMAZON_SECRET")}]]
   :signing {:gpg-key "164E1387"})
