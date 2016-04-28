@@ -16,12 +16,12 @@
      (if (= value ::not-found)
        (throw (ex-info (str "config var " k " not set") {}))
        value)))
-  ([m k {:keys [default parse-fn] :or {parse-fn identity}}]
+  ([m k {:keys [default parser] :or {parser identity}}]
      (when-not m (throw (ex-info "config not initialized" {})))
      (let [value (get-in m (->vec k) ::not-found)]
        (if (= value ::not-found)
          default
-         (parse-fn value)))))
+         (parser value)))))
 
 (defprotocol IValidate
   (-valid? [this value] "Return true if the value is valid, false otherwise."))
@@ -67,8 +67,12 @@
 
 (def +default-validator+ (constantly true))
 (defmethod ->config-entry :default
-  [env lookup-key {:keys [default validator] :as options
-                   :or {validator +default-validator+
+  [env lookup-key {:keys [default validator parser] :as options
+                   :or {parser identity
+                        validator +default-validator+
                         default +default-sentinel+}}]
-  (assoc (->ConfigEntry env lookup-key validator)
-         :default default))
+  (map->ConfigEntry {:default default
+                     :env env
+                     :lookup-key lookup-key
+                     :validator validator
+                     :parser parser}))

@@ -31,11 +31,13 @@ config should be initialized by calling `init!`, e.g.
 (require '[clj-config.core :refer [defconfig init!]])
 
 (defconfig
-  :env {foo "BAZ"
-        bar "QUX"}
-  :app {sentry-cfg :sentry          ; grab entire map
-        sentry-url [:sentry :dsn]   ; or just bits
-        sentry-usr [:sentry :usr]}) ; and pieces
+  :env [[foo "BAZ"]
+        [bar "QUX" {:default 42
+                    :parser #(Integer/parseInt %)
+                    :validator #(< 13 % 100)}]]
+  :app [[sentry-cfg :sentry]                                   ; grab entire map
+        [sentry-url [:sentry :dsn] {:validator #"^https?://"}] ; or just bits
+        [sentry-usr [:sentry :usr]]])                          ; and pieces
 
 (init!) ;; call init! once as the app starts
 
@@ -46,8 +48,22 @@ config should be initialized by calling `init!`, e.g.
 `init!` will raise an exception if an environmental var declared in `defconfig` isn't
 present.
 
-(for :app vars, exception is raised if the app-config edn structure does not 
+(for :app vars, exception is raised if the app-config edn structure does not
  contain the keypath specified in defconfig)
+
+Each entry in the `defconfig` form can be supplied with an optional
+map with the following keys:
+
+| Key          | Type                    | Meaning                                                                   |
+|--------------|-------------------------|---------------------------------------------------------------------------|
+| `:default`   | arbitrary               | Will supply the var with this value if it's not found in the environment. |
+| `:parser`    | function                | Converts the string found in the environment into the proper data.        |
+| `:validator` | extender of `IValidate` | Examines the parsed data for correctness.                                 |
+
+The `IValidate` protocol has already been extended to
+`clojure.lang.IFn` and to `java.util.regex.Pattern`. These types can
+be passed in the `:validator` out of the box. Functions used as
+validators should return a boolean.
 
 ## Testing
 
@@ -62,7 +78,7 @@ Make a config fixture in your test namespace and call `(make-config-fixture ...)
       :queues
       {:incoming {:name "message-api.mail.Incoming" :routing-key "mail.incoming"}
        :outgoing {:name "message-api.mail.Outgoing" :routing-key "mail.outgoing"}}}}}})
- 
+
 (use-fixtures :once
   (make-config-fixture +my-sample-config+))
 ```
