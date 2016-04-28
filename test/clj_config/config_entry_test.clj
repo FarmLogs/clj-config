@@ -15,8 +15,8 @@
                  (= (-lookup config-entry config-data)
                     config-value)))
 
-        :env ["NUMBER" {:parse-fn #(Integer/parseInt %)}] 129
-        :app [[:some :other :key] {:parse-fn str}] "1337"
+        :env ["NUMBER" {:parser #(Integer/parseInt %)}] 129
+        :app [[:some :other :key] {:parser str}] "1337"
 
         :env ["HOME" {:validator string?}] "foo"
         :env ["HOME"]                      "foo"
@@ -52,4 +52,4 @@
                    config-data)
 
         :env "NUMBER"       {:validator integer?
-                             :parse-fn #(Integer/parseInt %)}))))
+                             :parser #(Integer/parseInt %)}))))
