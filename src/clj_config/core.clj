@@ -4,7 +4,8 @@
             [clojure.string :refer [trim] :as s]
             [clojure.set :as set]
             [clojure.tools.logging :as log]
-            [clj-config.app :as app])
+            [clj-config.app :as app]
+            [clj-config.config-entry :as entry :refer [->config-entry]])
   (:import [java.util Properties]
            [java.io File]))
 
@@ -32,26 +33,6 @@
   [root basename]
   (clojure.string/join File/separator (list root basename)))
 
-(defn ->vec
-  [x]
-  (if (sequential? x)
-    x
-    (vector x)))
-
-(defn get-in*
-  "Get k from m, barf if not found (unless provided a default value).
-   Wrap k in a vector if k is not already
-   "
-  ([m k]
-     (when-not m (throw (ex-info "config not initialized" {})))
-     (let [value (get-in m (->vec k) ::not-found)]
-       (if (= value ::not-found)
-         (throw (ex-info (str "config var " k " not set") {}))
-         value)))
-  ([m k not-found]
-     (when-not m (throw (ex-info "config not initialized" {})))
-     (get-in m (->vec k) not-found)))
-
 (defn system-get-env
   ([] (System/getenv))
   ([key] (System/getenv key)))
@@ -75,12 +56,12 @@
 (def required-env (atom #{}))
 
 (defn env-config-def
-  [[name env-varname]]
-  (assert (and (symbol? name) (string? env-varname)))
-  `((swap! required-env conj ~env-varname)
-    (def ~name
-      (reify clojure.lang.IDeref
-        (deref [this#] (get-in* config ~env-varname))))))
+  [[name env-varname opts]]
+  `((let [entry# (->config-entry :env ~env-varname ~opts)]
+      (swap! required-env conj entry#)
+      (def ~name
+        (reify clojure.lang.IDeref
+          (deref [this#] (entry/-lookup entry# config)))))))
 
 ;;;;;;;; app config
 
@@ -102,12 +83,13 @@
 (def required-app-config (atom #{}))
 
 (defn app-config-def
-  [[name env-varname]]
-  (assert (and (symbol? name) (every? keyword? (->vec env-varname))))
-  `((swap! required-app-config conj ~env-varname)
-    (def ~name
-      (reify clojure.lang.IDeref
-        (deref [this#] (get-in* app-config ~env-varname))))))
+  [[name env-varname opts]]
+  (assert (and (symbol? name) (every? keyword? (entry/->vec env-varname))))
+  `((let [config-entry# (->config-entry :app ~env-varname ~opts)]
+      (swap! required-app-config conj config-entry#)
+      (def ~name
+        (reify clojure.lang.IDeref
+          (deref [this#] (entry/-lookup config-entry# app-config)))))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -116,18 +98,52 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;
 
-(defn init-app-config!
-  [env root-dir]
-  (let [app-config-file (when (seq @required-app-config)
-                          (get-in* env "CLJ_APP_CONFIG" (str root-dir (System/getProperty "file.separator") "config.edn")))
-        app-environment (get-in* env "APPLICATION_ENVIRONMENT" "dev")
-        app-config (read-app-config app-config-file app-environment)]
-    (assert (every? (partial app/contains-keypath? app-config) @required-app-config)
+(defn valid-app-config?
+  [app-config-entries actual-config]
+  (let [required-names (->> (remove entry/has-default? app-config-entries)
+                            (map :lookup-key)
+                            (into #{}))]
+    (assert (every? (partial app/contains-keypath? actual-config) required-names)
             (format "Not all required APP configuration vars are defined. Missing vars: %s"
                     (pr-str (remove (partial app/contains-keypath?
-                                             app-config)
-                                    @required-app-config))))
-    (alter-var-root #'app-config (constantly app-config))))
+                                             actual-config)
+                                    required-names))))
+    (assert (every? #(entry/-valid? % actual-config) app-config-entries)
+            (format "Not all required APP configuration vars are valid: %s"
+                    (->> (remove #(entry/-valid? % actual-config) app-config-entries)
+                         (map :lookup-key)
+                         (interpose ", ")
+                         (apply str))))
+    true))
+
+(defn init-app-config!
+  ([env] (init-app-config! env (System/getProperty "user.dir")))
+  ([env root-dir]
+   (let [app-config-file (when (seq @required-app-config)
+                           (entry/get-in* env "CLJ_APP_CONFIG"
+                                          {:default
+                                           (str root-dir (System/getProperty "file.separator") "config.edn")}))
+         app-environment (entry/get-in* env "APPLICATION_ENVIRONMENT" {:default "dev"})
+         app-config (read-app-config app-config-file app-environment)]
+     (when (valid-app-config? @required-app-config app-config)
+       (alter-var-root #'app-config (constantly app-config))))))
+
+
+(defn valid-env-config?
+  [env-config-entries actual-config]
+  (let [required-names (->> (remove entry/has-default? env-config-entries)
+                            (map :lookup-key)
+                            (into #{}))]
+    (assert (set/subset? required-names (set (keys actual-config)))
+            (format "Not all required ENV configuration vars are defined. Missing vars: %s"
+                    (pr-str (set/difference required-names (set (keys actual-config))))))
+    (assert (every? #(entry/-valid? % actual-config) env-config-entries)
+            (format "Not all required ENV configuration vars are valid: %s"
+                    (->> (remove #(entry/-valid? % actual-config) env-config-entries)
+                         (map :lookup-key)
+                         (interpose ", ")
+                         (apply str))))
+    true))
 
 (defn init!
   ([]
@@ -135,12 +151,9 @@
               (System/getProperty "user.dir"))))
   ([root-dir]
    (let [config (read-env root-dir)]
-     (assert (set/subset? @required-env (set (keys config)))
-             (format "Not all required ENV configuration vars are defined. Missing vars: %s"
-                     (pr-str (set/difference @required-env (set (keys config))))))
-     (alter-var-root #'config (constantly config))
-
-     (init-app-config! config root-dir))))
+     (when (valid-env-config? @required-env config)
+       (alter-var-root #'config (constantly config))
+       (init-app-config! config root-dir)))))
 
 (defmacro defconfig
   "
@@ -182,5 +195,5 @@
   (require '[clj-config.core :refer [defconfig]])
 
   (defconfig
-    :app {sentry-url :sentry-dsn}
-    :env {oracle-url "DATASTORES_ORACLE_WEBICON_HOSTNAME"}))
+    :app [[sentry-url :sentry-dsn]]
+    :env [[oracle-url "DATASTORES_ORACLE_WEBICON_HOSTNAME"]]))
