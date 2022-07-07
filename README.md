@@ -1,5 +1,10 @@
 # clj-config
 
+## pre-commit
+
+- Install: https://pre-commit.com/
+- running locally: This will also happen automatically before committing to a branch, but you can also run the tasks with `pre-commit run --all-files`
+
 Environmental configuration for Clojure projects inspired by
 [the Ruby dotenv gem](https://github.com/bkeepers/dotenv).
 `clj-config` loads config values in descending order of preference from
